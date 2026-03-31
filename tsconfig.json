@@ -14,7 +14,7 @@
       "path": "./packages/pi-skills-search"
     },
     {
-      "path": "./packages/pi-channel-clawbot"
+      "path": "./packages/pi-channel-telegram"
     },
     {
       "path": "./packages/pi-server"

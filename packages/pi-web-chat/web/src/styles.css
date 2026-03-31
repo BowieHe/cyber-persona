@@ -131,6 +131,27 @@ textarea {
   font-size: 13px;
 }
 
+.persona-select-shell {
+  display: grid;
+  gap: 10px;
+}
+
+.persona-hint {
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.persona-select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(124, 226, 195, 0.2);
+  border-radius: 16px;
+  background: rgba(14, 18, 24, 0.92);
+  color: var(--text);
+  outline: none;
+}
+
 .tag-list {
   display: flex;
   flex-wrap: wrap;

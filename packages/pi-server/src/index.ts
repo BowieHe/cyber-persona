@@ -4,9 +4,10 @@ import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
 import {
-  buildClawbotOutbound,
-  parseClawbotInbound
-} from "@cyber-bowie/pi-channel-clawbot";
+  createTelegramSessionId,
+  parseTelegramBotConfigs,
+  startTelegramPolling
+} from "@cyber-bowie/pi-channel-telegram";
 import { ChatService } from "./chat-service.js";
 
 loadEnv({
@@ -26,6 +27,7 @@ const chatService = new ChatService({
 interface ChatRequestBody {
   message?: string;
   sessionId?: string;
+  personaId?: string;
 }
 
 interface ResponseSpec {
@@ -42,36 +44,6 @@ function jsonResponse(data: unknown, statusCode = 200): ResponseSpec {
     },
     body: JSON.stringify(data)
   };
-}
-
-function getBearerToken(value: string | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-
-  return trimmed.startsWith("Bearer ") ? trimmed.slice("Bearer ".length).trim() : trimmed;
-}
-
-function validateClawbotRequest(request: import("node:http").IncomingMessage): boolean {
-  const configuredToken = process.env.CLAWBOT_WEBHOOK_TOKEN?.trim();
-
-  if (!configuredToken) {
-    return true;
-  }
-
-  const authorization = getBearerToken(request.headers.authorization);
-  const headerToken = getBearerToken(
-    typeof request.headers["x-clawbot-token"] === "string"
-      ? request.headers["x-clawbot-token"]
-      : undefined
-  );
-
-  return authorization === configuredToken || headerToken === configuredToken;
 }
 
 async function readJsonBody<T>(request: import("node:http").IncomingMessage): Promise<T> {
@@ -106,125 +78,147 @@ async function serveStatic(pathname: string): Promise<ResponseSpec> {
   };
 }
 
-createServer(async (request, response) => {
-  try {
-    const url = new URL(request.url ?? "/", `http://${request.headers.host}`);
+async function main(): Promise<void> {
+  const telegramBots = parseTelegramBotConfigs(process.env.TELEGRAM_BOTS_JSON);
+  const telegramController =
+    telegramBots.length > 0
+      ? startTelegramPolling({
+          bots: telegramBots,
+          async onMessage(event) {
+            const result = await chatService.buildReply(event.message.text, {
+              personaId: event.bot.personaId,
+              sessionId: createTelegramSessionId(event.message)
+            });
 
-    if (request.method === "GET" && url.pathname === "/api/health") {
-      const payload = jsonResponse({
-        ok: true,
-        service: "pi-server"
-      });
-      response.writeHead(payload.statusCode, payload.headers);
-      response.end(payload.body);
-      return;
-    }
-
-    if (request.method === "GET" && url.pathname === "/api/skills") {
-      const payload = jsonResponse(await chatService.getSkillsAndSoul());
-      response.writeHead(payload.statusCode, payload.headers);
-      response.end(payload.body);
-      return;
-    }
-
-    if (request.method === "POST" && url.pathname === "/api/chat") {
-      const body = await readJsonBody<ChatRequestBody>(request);
-      const message = body.message?.trim();
-      const sessionId = body.sessionId?.trim();
-
-      if (!message) {
-        const payload = jsonResponse({ error: "message 不能为空" }, 400);
-        response.writeHead(payload.statusCode, payload.headers);
-        response.end(payload.body);
-        return;
-      }
-
-      const payload = jsonResponse(await chatService.buildReply(message, sessionId || undefined));
-      response.writeHead(payload.statusCode, payload.headers);
-      response.end(payload.body);
-      return;
-    }
-
-    if (request.method === "POST" && url.pathname === "/api/chat/stream") {
-      const body = await readJsonBody<ChatRequestBody>(request);
-      const message = body.message?.trim();
-      const sessionId = body.sessionId?.trim();
-
-      if (!message) {
-        const payload = jsonResponse({ error: "message 不能为空" }, 400);
-        response.writeHead(payload.statusCode, payload.headers);
-        response.end(payload.body);
-        return;
-      }
-
-      response.writeHead(200, {
-        "Content-Type": "text/event-stream; charset=utf-8",
-        "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive"
-      });
-
-      for await (const event of chatService.streamReply(message, sessionId || undefined)) {
-        response.write(`data: ${JSON.stringify(event)}\n\n`);
-      }
-
-      response.end();
-      return;
-    }
-
-    if (request.method === "POST" && url.pathname === "/api/channel/clawbot") {
-      if (!validateClawbotRequest(request)) {
-        const payload = jsonResponse(
-          {
-            error: "clawbot webhook token 无效"
+            return {
+              text: result.reply,
+              replyToMessageId: event.message.messageId
+            };
           },
-          401
+          log(level, message, meta) {
+            const line =
+              meta === undefined
+                ? `[telegram:${level}] ${message}`
+                : `[telegram:${level}] ${message} ${JSON.stringify(meta)}`;
+            process.stdout.write(`${line}\n`);
+          }
+        })
+      : null;
+
+  const server = createServer(async (request, response) => {
+    try {
+      const url = new URL(request.url ?? "/", `http://${request.headers.host}`);
+
+      if (request.method === "GET" && url.pathname === "/api/health") {
+        const payload = jsonResponse({
+          ok: true,
+          service: "pi-server",
+          telegramBots: telegramBots.length
+        });
+        response.writeHead(payload.statusCode, payload.headers);
+        response.end(payload.body);
+        return;
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/skills") {
+        const personaId = url.searchParams.get("personaId")?.trim() || undefined;
+        const payload = jsonResponse(await chatService.getSkillsAndSoul(personaId));
+        response.writeHead(payload.statusCode, payload.headers);
+        response.end(payload.body);
+        return;
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/chat") {
+        const body = await readJsonBody<ChatRequestBody>(request);
+        const message = body.message?.trim();
+        const sessionId = body.sessionId?.trim();
+        const personaId = body.personaId?.trim();
+
+        if (!message) {
+          const payload = jsonResponse({ error: "message 不能为空" }, 400);
+          response.writeHead(payload.statusCode, payload.headers);
+          response.end(payload.body);
+          return;
+        }
+
+        const payload = jsonResponse(
+          await chatService.buildReply(message, {
+            sessionId: sessionId || undefined,
+            personaId: personaId || undefined
+          })
         );
         response.writeHead(payload.statusCode, payload.headers);
         response.end(payload.body);
         return;
       }
 
-      const body = await readJsonBody<unknown>(request);
-      const inbound = parseClawbotInbound(body);
+      if (request.method === "POST" && url.pathname === "/api/chat/stream") {
+        const body = await readJsonBody<ChatRequestBody>(request);
+        const message = body.message?.trim();
+        const sessionId = body.sessionId?.trim();
+        const personaId = body.personaId?.trim();
 
-      if (!inbound) {
-        const payload = jsonResponse(
-          {
-            error: "无法识别 clawbot 消息格式，请调整 adapter payload"
-          },
-          400
-        );
+        if (!message) {
+          const payload = jsonResponse({ error: "message 不能为空" }, 400);
+          response.writeHead(payload.statusCode, payload.headers);
+          response.end(payload.body);
+          return;
+        }
+
+        response.writeHead(200, {
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive"
+        });
+
+        for await (const event of chatService.streamReply(message, {
+          sessionId: sessionId || undefined,
+          personaId: personaId || undefined
+        })) {
+          response.write(`data: ${JSON.stringify(event)}\n\n`);
+        }
+
+        response.end();
+        return;
+      }
+
+      if (request.method === "GET") {
+        const payload = await serveStatic(url.pathname);
         response.writeHead(payload.statusCode, payload.headers);
         response.end(payload.body);
         return;
       }
 
-      const result = await chatService.buildReply(
-        inbound.text,
-        `${inbound.channel}:${inbound.sessionId}:${inbound.userId}`
-      );
-      const payload = jsonResponse(buildClawbotOutbound(inbound, result.reply));
+      const payload = jsonResponse({ error: "不支持的请求" }, 404);
       response.writeHead(payload.statusCode, payload.headers);
       response.end(payload.body);
-      return;
-    }
-
-    if (request.method === "GET") {
-      const payload = await serveStatic(url.pathname);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      const payload = jsonResponse({ error: message }, 500);
       response.writeHead(payload.statusCode, payload.headers);
       response.end(payload.body);
-      return;
+    }
+  });
+
+  const shutdown = async () => {
+    if (telegramController) {
+      await telegramController.stop();
     }
 
-    const payload = jsonResponse({ error: "不支持的请求" }, 404);
-    response.writeHead(payload.statusCode, payload.headers);
-    response.end(payload.body);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    const payload = jsonResponse({ error: message }, 500);
-    response.writeHead(payload.statusCode, payload.headers);
-    response.end(payload.body);
-  }
-}).listen(port, host, () => {
-  process.stdout.write(`pi-server running at http://${host}:${port}\n`);
-});
+    server.closeAllConnections?.();
+    server.close();
+  };
+
+  process.once("SIGINT", () => {
+    void shutdown();
+  });
+  process.once("SIGTERM", () => {
+    void shutdown();
+  });
+
+  server.listen(port, host, () => {
+    process.stdout.write(`pi-server running at http://${host}:${port}\n`);
+  });
+}
+
+void main();

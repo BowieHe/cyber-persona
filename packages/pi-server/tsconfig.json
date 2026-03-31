@@ -16,7 +16,7 @@
       "path": "../pi-agent-core"
     },
     {
-      "path": "../pi-channel-clawbot"
+      "path": "../pi-channel-telegram"
     },
     {
       "path": "../pi-skills-search"

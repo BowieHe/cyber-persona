@@ -5,9 +5,16 @@ interface SkillMetadata {
   description: string;
 }
 
+interface PersonaDefinition {
+  id: string;
+  displayName: string;
+  soulPath: string;
+}
+
 interface SkillsResponse {
   skills: SkillMetadata[];
   soul: string;
+  personas: PersonaDefinition[];
 }
 
 interface ChatResponse {
@@ -28,21 +35,42 @@ interface Message {
   content: string;
 }
 
-const initialMessage: Message = {
-  id: "welcome",
-  role: "assistant",
-  name: "Bowie",
-  content:
-    "现在这页已经接上你的本地 agent 了。你可以直接输入需求，我会用中文回你；如果内容适合，superpower 也会一起帮你把问题整理得更像一个能真的推进的项目。"
-};
+const SESSION_STORAGE_KEY = "cyber-bowie.session-id";
+const PERSONA_STORAGE_KEY = "cyber-bowie.persona-id";
 
 function createSessionId(): string {
   return `web-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function createWelcomeMessage(name: string): Message {
+  return {
+    id: "welcome",
+    role: "assistant",
+    name,
+    content: `现在这页已经接上你的本地 agent 了。你可以直接用中文跟我聊；如果内容适合，我也会把 skill 一起带进来，不只是回一句漂亮话。当前在线的人格是 ${name}。`
+  };
+}
+
+function createNextSession(): string {
+  const sessionId = createSessionId();
+  window.localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+  return sessionId;
+}
+
+function summarizeSoul(soul: string): string {
+  return soul
+    .split("\n")
+    .filter((line) => line.trim().length > 0 && !line.startsWith("#"))
+    .slice(0, 5)
+    .join(" / ");
+}
+
 export function App() {
-  const [messages, setMessages] = useState<Message[]>([initialMessage]);
+  const [messages, setMessages] = useState<Message[]>([createWelcomeMessage("载入中")]);
   const [skills, setSkills] = useState<SkillMetadata[]>([]);
+  const [personas, setPersonas] = useState<PersonaDefinition[]>([]);
+  const [selectedPersonaId, setSelectedPersonaId] = useState("bowie");
+  const [assistantName, setAssistantName] = useState("载入中");
   const [soulPreview, setSoulPreview] = useState("载入中...");
   const [draft, setDraft] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -52,14 +80,11 @@ export function App() {
   const messageEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    void loadMeta();
-    const storageKey = "cyber-bowie.session-id";
-    const existing = window.localStorage.getItem(storageKey);
-    const nextSessionId = existing || createSessionId();
-    if (!existing) {
-      window.localStorage.setItem(storageKey, nextSessionId);
-    }
-    setSessionId(nextSessionId);
+    const existingSessionId = window.localStorage.getItem(SESSION_STORAGE_KEY) || createNextSession();
+    const existingPersonaId = window.localStorage.getItem(PERSONA_STORAGE_KEY) || "bowie";
+
+    setSessionId(existingSessionId);
+    setSelectedPersonaId(existingPersonaId);
   }, []);
 
   useEffect(() => {
@@ -67,17 +92,37 @@ export function App() {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [draft, messages]);
 
-  async function loadMeta(): Promise<void> {
-    const response = await fetch("/api/skills");
+  useEffect(() => {
+    void loadMeta(selectedPersonaId);
+  }, [selectedPersonaId]);
+
+  async function loadMeta(personaId: string): Promise<void> {
+    const response = await fetch(`/api/skills?personaId=${encodeURIComponent(personaId)}`);
     const data = (await response.json()) as SkillsResponse;
+    const nextPersonas = data.personas.length > 0 ? data.personas : [];
+    const activePersona =
+      nextPersonas.find((persona) => persona.id === personaId) ?? nextPersonas[0] ?? null;
+    const nextPersonaId = activePersona?.id ?? personaId;
+    const nextAssistantName = activePersona?.displayName ?? "Bowie";
+
     setSkills(data.skills);
+    setPersonas(nextPersonas);
+    setAssistantName(nextAssistantName);
+    setSoulPreview(summarizeSoul(data.soul));
 
-    const soulLines = data.soul
-      .split("\n")
-      .filter((line) => line.trim().length > 0 && !line.startsWith("#"))
-      .slice(0, 5);
+    if (nextPersonaId !== personaId) {
+      window.localStorage.setItem(PERSONA_STORAGE_KEY, nextPersonaId);
+      setSelectedPersonaId(nextPersonaId);
+      return;
+    }
 
-    setSoulPreview(soulLines.join(" / "));
+    setMessages((current) =>
+      current.length === 1 && current[0]?.id === "welcome"
+        ? [createWelcomeMessage(nextAssistantName)]
+        : current.map((message) =>
+            message.role === "assistant" ? { ...message, name: nextAssistantName } : message
+          )
+    );
   }
 
   function autoResize(): void {
@@ -106,7 +151,7 @@ export function App() {
       {
         id: assistantMessageId,
         role: "assistant",
-        name: "Bowie",
+        name: assistantName,
         content: ""
       }
     ]);
@@ -124,7 +169,11 @@ export function App() {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ message, sessionId })
+        body: JSON.stringify({
+          message,
+          sessionId,
+          personaId: selectedPersonaId
+        })
       });
 
       if (!response.ok || !response.body) {
@@ -210,9 +259,7 @@ export function App() {
     await submitMessage(message);
   }
 
-  async function handleKeyDown(
-    event: KeyboardEvent<HTMLTextAreaElement>
-  ): Promise<void> {
+  async function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): Promise<void> {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       const message = draft.trim();
@@ -226,12 +273,18 @@ export function App() {
   }
 
   function resetChat(): void {
-    setMessages([initialMessage]);
+    setMessages([createWelcomeMessage(assistantName)]);
     setDraft("");
-    const nextSessionId = createSessionId();
-    window.localStorage.setItem("cyber-bowie.session-id", nextSessionId);
-    setSessionId(nextSessionId);
+    setSessionId(createNextSession());
     textareaRef.current?.focus();
+  }
+
+  function handlePersonaChange(personaId: string): void {
+    window.localStorage.setItem(PERSONA_STORAGE_KEY, personaId);
+    setSelectedPersonaId(personaId);
+    setMessages([createWelcomeMessage("切换中")]);
+    setDraft("");
+    setSessionId(createNextSession());
   }
 
   return (
@@ -248,6 +301,25 @@ export function App() {
         <button className="new-chat-button" onClick={resetChat} type="button">
           开启新对话
         </button>
+
+        <section className="sidebar-panel">
+          <p className="panel-label">当前人格</p>
+          <label className="persona-select-shell">
+            <span className="persona-hint">切换不同 persona 的 SOUL 和记忆</span>
+            <select
+              className="persona-select"
+              value={selectedPersonaId}
+              onChange={(event) => handlePersonaChange(event.target.value)}
+              disabled={isLoading}
+            >
+              {personas.map((persona) => (
+                <option key={persona.id} value={persona.id}>
+                  {persona.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
+        </section>
 
         <section className="sidebar-panel">
           <p className="panel-label">已启用技能</p>
@@ -270,7 +342,7 @@ export function App() {
         <header className="stage-header">
           <div>
             <p className="eyebrow">Chat View</p>
-            <h2>像 ChatGPT 一样聊天，但人格是你自己的</h2>
+            <h2>{assistantName} 在线，用你自己的 SOUL 来聊天</h2>
           </div>
           <div className="status-pill">
             <span className="status-dot"></span>
@@ -286,7 +358,7 @@ export function App() {
               }`}
               key={message.id}
             >
-              <div className="avatar">{message.role === "user" ? "你" : "B"}</div>
+              <div className="avatar">{message.role === "user" ? "你" : assistantName.slice(0, 1)}</div>
               <div className="bubble">
                 <p className="message-role">{message.name}</p>
                 <div className="message-content">
@@ -323,7 +395,9 @@ export function App() {
             </button>
           </label>
           <p className="composer-tip">
-            {isLoading ? "正在流式生成回复..." : "Enter 送出，Shift + Enter 换行"}
+            {isLoading
+              ? `${assistantName} 正在流式生成回复...`
+              : `当前 persona：${assistantName}。Enter 送出，Shift + Enter 换行`}
           </p>
         </form>
       </main>

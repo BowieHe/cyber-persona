@@ -26,8 +26,8 @@
       "@cyber-bowie/pi-server": [
         "packages/pi-server/src/index.ts"
       ],
-      "@cyber-bowie/pi-channel-clawbot": [
-        "packages/pi-channel-clawbot/src/index.ts"
+      "@cyber-bowie/pi-channel-telegram": [
+        "packages/pi-channel-telegram/src/index.ts"
       ],
       "@cyber-bowie/pi-web-chat": [
         "packages/pi-web-chat/web/src/main.tsx"

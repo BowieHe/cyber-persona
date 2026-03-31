@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc -b tsconfig.json && npm run build:assets --workspaces --if-present",
     "check": "tsc -b tsconfig.json && npm run check:assets --workspaces --if-present",
+    "test": "node --import tsx --test packages/**/*.test.ts",
     "dev": "node packages/pi-coding-agent/dist/index.js",
     "agent": "node packages/pi-coding-agent/dist/index.js",
     "server": "node packages/pi-server/dist/index.js",
@@ -23,6 +24,7 @@
     "@types/node": "^24.5.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "tsx": "^4.20.3",
     "typescript": "^5.8.3",
     "vite": "^7.1.5"
   }

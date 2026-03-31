@@ -8,7 +8,7 @@
   "dependencies": {
     "@cyber-bowie/pi-ai": "0.1.0",
     "@cyber-bowie/pi-agent-core": "0.1.0",
-    "@cyber-bowie/pi-channel-clawbot": "0.1.0",
+    "@cyber-bowie/pi-channel-telegram": "0.1.0",
     "@cyber-bowie/pi-skills-search": "0.1.0",
     "@cyber-bowie/pi-skills-superpower": "0.1.0",
     "dotenv": "^16.6.1"
