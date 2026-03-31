@@ -15,6 +15,11 @@ export interface ChatServiceConfig {
   cwd: string;
 }
 
+interface SessionContext {
+  session: AgentSession;
+  updatedAt: number;
+}
+
 function getRequiredEnv(name: string): string {
   const value = process.env[name]?.trim();
 
@@ -26,6 +31,8 @@ function getRequiredEnv(name: string): string {
 }
 
 export class ChatService {
+  private readonly sessions = new Map<string, SessionContext>();
+
   public constructor(private readonly config: ChatServiceConfig) {}
 
   private createAgentSession(): AgentSession {
@@ -62,6 +69,43 @@ export class ChatService {
     return session;
   }
 
+  private async getOrCreateSession(sessionId?: string): Promise<AgentSession> {
+    const soul = await loadSoulFile(join(this.config.cwd, "SOUL.md"));
+
+    if (!sessionId) {
+      const session = this.createAgentSession();
+      session.setSoul(soul);
+      return session;
+    }
+
+    const existing = this.sessions.get(sessionId);
+    if (existing) {
+      existing.updatedAt = Date.now();
+      existing.session.setSoul(soul);
+      return existing.session;
+    }
+
+    const session = this.createAgentSession();
+    session.setSoul(soul);
+    this.sessions.set(sessionId, {
+      session,
+      updatedAt: Date.now()
+    });
+    this.cleanupSessions();
+    return session;
+  }
+
+  private cleanupSessions(): void {
+    const now = Date.now();
+    const maxAgeMs = 1000 * 60 * 60 * 6;
+
+    for (const [sessionId, context] of this.sessions.entries()) {
+      if (now - context.updatedAt > maxAgeMs) {
+        this.sessions.delete(sessionId);
+      }
+    }
+  }
+
   public async getSkillsAndSoul(): Promise<{ skills: ReturnType<AgentSession["listSkills"]>; soul: string }> {
     const session = this.createAgentSession();
     const soul = await loadSoulFile(join(this.config.cwd, "SOUL.md"));
@@ -72,12 +116,11 @@ export class ChatService {
     };
   }
 
-  public async buildReply(message: string): Promise<{
+  public async buildReply(message: string, sessionId?: string): Promise<{
     reply: string;
     skills: string[];
   }> {
-    const session = this.createAgentSession();
-    session.setSoul(await loadSoulFile(join(this.config.cwd, "SOUL.md")));
+    const session = await this.getOrCreateSession(sessionId);
 
     const result = await session.run({
       goal: message,
@@ -108,13 +151,12 @@ export class ChatService {
     };
   }
 
-  public async *streamReply(message: string): AsyncIterable<{
+  public async *streamReply(message: string, sessionId?: string): AsyncIterable<{
     type: "delta" | "skills" | "done";
     textDelta?: string;
     skills?: string[];
   }> {
-    const session = this.createAgentSession();
-    session.setSoul(await loadSoulFile(join(this.config.cwd, "SOUL.md")));
+    const session = await this.getOrCreateSession(sessionId);
 
     let latestSkillNames: string[] = [];
 

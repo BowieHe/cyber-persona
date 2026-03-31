@@ -7,6 +7,8 @@ This package is the message normalization layer between channel payloads and the
 - Provides a normalized inbound message format
 - Accepts flexible `clawbot`-like webhook payloads
 - Returns a normalized outbound reply structure
+- Session continuity is handled by `pi-server` using `sessionId + userId`
+- Optional token auth is controlled by `CLAWBOT_WEBHOOK_TOKEN`
 
 ## Expected minimal payload
 
@@ -16,6 +18,20 @@ This package is the message normalization layer between channel payloads and the
   "userId": "wx-user-123",
   "text": "请介绍一下你自己"
 }
+```
+
+## Webhook auth
+
+If `CLAWBOT_WEBHOOK_TOKEN` is configured, include one of:
+
+```http
+Authorization: Bearer <token>
+```
+
+or
+
+```http
+X-Clawbot-Token: <token>
 ```
 
 ## Accepted alternative keys

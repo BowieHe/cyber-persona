@@ -36,6 +36,10 @@ const initialMessage: Message = {
     "现在这页已经接上你的本地 agent 了。你可以直接输入需求，我会用中文回你；如果内容适合，superpower 也会一起帮你把问题整理得更像一个能真的推进的项目。"
 };
 
+function createSessionId(): string {
+  return `web-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function App() {
   const [messages, setMessages] = useState<Message[]>([initialMessage]);
   const [skills, setSkills] = useState<SkillMetadata[]>([]);
@@ -43,11 +47,19 @@ export function App() {
   const [draft, setDraft] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [sessionId, setSessionId] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     void loadMeta();
+    const storageKey = "cyber-bowie.session-id";
+    const existing = window.localStorage.getItem(storageKey);
+    const nextSessionId = existing || createSessionId();
+    if (!existing) {
+      window.localStorage.setItem(storageKey, nextSessionId);
+    }
+    setSessionId(nextSessionId);
   }, []);
 
   useEffect(() => {
@@ -112,7 +124,7 @@ export function App() {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ message })
+        body: JSON.stringify({ message, sessionId })
       });
 
       if (!response.ok || !response.body) {
@@ -216,6 +228,9 @@ export function App() {
   function resetChat(): void {
     setMessages([initialMessage]);
     setDraft("");
+    const nextSessionId = createSessionId();
+    window.localStorage.setItem("cyber-bowie.session-id", nextSessionId);
+    setSessionId(nextSessionId);
     textareaRef.current?.focus();
   }
 

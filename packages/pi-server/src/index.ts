@@ -25,6 +25,7 @@ const chatService = new ChatService({
 
 interface ChatRequestBody {
   message?: string;
+  sessionId?: string;
 }
 
 interface ResponseSpec {
@@ -41,6 +42,36 @@ function jsonResponse(data: unknown, statusCode = 200): ResponseSpec {
     },
     body: JSON.stringify(data)
   };
+}
+
+function getBearerToken(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  return trimmed.startsWith("Bearer ") ? trimmed.slice("Bearer ".length).trim() : trimmed;
+}
+
+function validateClawbotRequest(request: import("node:http").IncomingMessage): boolean {
+  const configuredToken = process.env.CLAWBOT_WEBHOOK_TOKEN?.trim();
+
+  if (!configuredToken) {
+    return true;
+  }
+
+  const authorization = getBearerToken(request.headers.authorization);
+  const headerToken = getBearerToken(
+    typeof request.headers["x-clawbot-token"] === "string"
+      ? request.headers["x-clawbot-token"]
+      : undefined
+  );
+
+  return authorization === configuredToken || headerToken === configuredToken;
 }
 
 async function readJsonBody<T>(request: import("node:http").IncomingMessage): Promise<T> {
@@ -99,6 +130,7 @@ createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/chat") {
       const body = await readJsonBody<ChatRequestBody>(request);
       const message = body.message?.trim();
+      const sessionId = body.sessionId?.trim();
 
       if (!message) {
         const payload = jsonResponse({ error: "message 不能为空" }, 400);
@@ -107,7 +139,7 @@ createServer(async (request, response) => {
         return;
       }
 
-      const payload = jsonResponse(await chatService.buildReply(message));
+      const payload = jsonResponse(await chatService.buildReply(message, sessionId || undefined));
       response.writeHead(payload.statusCode, payload.headers);
       response.end(payload.body);
       return;
@@ -116,6 +148,7 @@ createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/chat/stream") {
       const body = await readJsonBody<ChatRequestBody>(request);
       const message = body.message?.trim();
+      const sessionId = body.sessionId?.trim();
 
       if (!message) {
         const payload = jsonResponse({ error: "message 不能为空" }, 400);
@@ -130,7 +163,7 @@ createServer(async (request, response) => {
         Connection: "keep-alive"
       });
 
-      for await (const event of chatService.streamReply(message)) {
+      for await (const event of chatService.streamReply(message, sessionId || undefined)) {
         response.write(`data: ${JSON.stringify(event)}\n\n`);
       }
 
@@ -139,6 +172,18 @@ createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/api/channel/clawbot") {
+      if (!validateClawbotRequest(request)) {
+        const payload = jsonResponse(
+          {
+            error: "clawbot webhook token 无效"
+          },
+          401
+        );
+        response.writeHead(payload.statusCode, payload.headers);
+        response.end(payload.body);
+        return;
+      }
+
       const body = await readJsonBody<unknown>(request);
       const inbound = parseClawbotInbound(body);
 
@@ -154,7 +199,10 @@ createServer(async (request, response) => {
         return;
       }
 
-      const result = await chatService.buildReply(inbound.text);
+      const result = await chatService.buildReply(
+        inbound.text,
+        `${inbound.channel}:${inbound.sessionId}:${inbound.userId}`
+      );
       const payload = jsonResponse(buildClawbotOutbound(inbound, result.reply));
       response.writeHead(payload.statusCode, payload.headers);
       response.end(payload.body);

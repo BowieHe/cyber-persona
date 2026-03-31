@@ -70,6 +70,11 @@ Example ClawBot-style payload:
 }
 ```
 
+如果配置了 `CLAWBOT_WEBHOOK_TOKEN`，请求需要带上以下任一请求头：
+
+- `Authorization: Bearer <token>`
+- `X-Clawbot-Token: <token>`
+
 ## OpenAI 配置
 
 项目通过 `.env` 读取模型配置，最少需要：
@@ -89,6 +94,7 @@ MCP_SEARCH_TOOL=bailian_web_search
 MCP_SEARCH_AUTH_TOKEN=
 MCP_SEARCH_AUTH_HEADER=Authorization
 MCP_SEARCH_RESULT_COUNT=10
+CLAWBOT_WEBHOOK_TOKEN=
 PORT=3000
 HOST=127.0.0.1
 ```
@@ -101,6 +107,7 @@ CLI 和 Web 都会读取同一份 `.env`。
 - `MCP_SEARCH_TOOL`: 要调用的工具名
 - `MCP_SEARCH_AUTH_TOKEN`: 可选，鉴权 token
 - `MCP_SEARCH_AUTH_HEADER`: 可选，默认 `Authorization`
+- `CLAWBOT_WEBHOOK_TOKEN`: 可选，保护 `clawbot` webhook 入口
 
 ## Notes
 
