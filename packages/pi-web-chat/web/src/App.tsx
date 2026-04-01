@@ -9,6 +9,11 @@ interface PersonaDefinition {
   id: string;
   displayName: string;
   soulPath: string;
+  introduction?: string;
+  specialties: string[];
+  collaborators: string[];
+  collaborationStyle?: string;
+  collaborationMode: "auto" | "always" | "manual";
 }
 
 interface SkillsResponse {
@@ -78,6 +83,8 @@ export function App() {
   const [sessionId, setSessionId] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
+  const selectedPersona =
+    personas.find((persona) => persona.id === selectedPersonaId) ?? personas[0] ?? null;
 
   useEffect(() => {
     const existingSessionId = window.localStorage.getItem(SESSION_STORAGE_KEY) || createNextSession();
@@ -305,7 +312,7 @@ export function App() {
         <section className="sidebar-panel">
           <p className="panel-label">当前人格</p>
           <label className="persona-select-shell">
-            <span className="persona-hint">切换不同 persona 的 SOUL 和记忆</span>
+            <span className="persona-hint">切换不同 persona 的 SOUL、专长和独立记忆</span>
             <select
               className="persona-select"
               value={selectedPersonaId}
@@ -319,6 +326,33 @@ export function App() {
               ))}
             </select>
           </label>
+        </section>
+
+        <section className="sidebar-panel">
+          <p className="panel-label">人格定位</p>
+          <p className="soul-preview">
+            {selectedPersona?.introduction ?? "这个人格还没写 introduction，可以先从 SOUL 和 personas.json 补。"}
+          </p>
+        </section>
+
+        <section className="sidebar-panel">
+          <p className="panel-label">擅长领域</p>
+          <div className="tag-list">
+            {(selectedPersona?.specialties ?? []).length > 0 ? (
+              selectedPersona?.specialties.map((specialty) => (
+                <span className="tag" key={specialty}>
+                  {specialty}
+                </span>
+              ))
+            ) : (
+              <span className="tag">暂未配置</span>
+            )}
+          </div>
+          {selectedPersona?.collaborators.length ? (
+            <p className="panel-footnote">
+              默认会优先协作：{selectedPersona.collaborators.join("、")}
+            </p>
+          ) : null}
         </section>
 
         <section className="sidebar-panel">
@@ -343,6 +377,11 @@ export function App() {
           <div>
             <p className="eyebrow">Chat View</p>
             <h2>{assistantName} 在线，用你自己的 SOUL 来聊天</h2>
+            <p className="stage-subtitle">
+              {selectedPersona?.specialties.length
+                ? `这位现在更擅长：${selectedPersona.specialties.join("、")}`
+                : "这位人格还没配置专长标签。"}
+            </p>
           </div>
           <div className="status-pill">
             <span className="status-dot"></span>
