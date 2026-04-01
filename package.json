@@ -10,10 +10,10 @@
     "build": "tsc -b tsconfig.json && npm run build:assets --workspaces --if-present",
     "check": "tsc -b tsconfig.json && npm run check:assets --workspaces --if-present",
     "test": "node --import tsx --test packages/**/*.test.ts",
-    "dev": "node packages/pi-coding-agent/dist/index.js",
-    "agent": "node packages/pi-coding-agent/dist/index.js",
-    "server": "node packages/pi-server/dist/index.js",
-    "web": "node packages/pi-server/dist/index.js"
+    "dev": "node --use-env-proxy packages/pi-coding-agent/dist/index.js",
+    "agent": "node --use-env-proxy packages/pi-coding-agent/dist/index.js",
+    "server": "node --use-env-proxy packages/pi-server/dist/index.js",
+    "web": "node --use-env-proxy packages/pi-server/dist/index.js"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.18.0",

@@ -268,6 +268,32 @@ TELEGRAM_BOTS_JSON=[{"token":"123456:aaa","personaId":"bowie","displayName":"呱
 npm test
 ```
 
+## 代理说明
+
+如果你的网络环境访问 Telegram 或模型接口需要代理，现在项目默认已经用 `node --use-env-proxy` 启动 `agent` 和 `server`。
+
+也就是说，只要你的系统或终端里已经有这些环境变量：
+
+```bash
+HTTP_PROXY=http://127.0.0.1:7897
+HTTPS_PROXY=http://127.0.0.1:7897
+NO_PROXY=127.0.0.1,localhost
+```
+
+那你直接执行：
+
+```bash
+npm run server
+```
+
+Node 进程就会自动走代理。
+
+要注意：
+
+- `NODE_USE_ENV_PROXY=1` 不适合只写进项目 `.env`
+- 因为 `.env` 是程序启动后才读取的
+- 代理变量最好放在系统 shell、启动脚本、`pm2` 或 `systemd` 里
+
 ## 常用命令
 
 ```bash
