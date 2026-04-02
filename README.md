@@ -1,4 +1,4 @@
-# cyber-bowie
+# cyber-persona
 
 一个用 TypeScript 写的个人 agent monorepo，灵感来自 `pi-mono`，但重点不是照着复刻，而是做一个你自己能继续养大的多人格 agent 系统。
 
@@ -16,14 +16,14 @@
 
 ## Packages
 
-- `@cyber-bowie/pi-ai`: OpenAI 兼容模型适配层
-- `@cyber-bowie/pi-agent-core`: agent runtime、SOUL 加载、skill registry
-- `@cyber-bowie/pi-coding-agent`: CLI 入口
-- `@cyber-bowie/pi-server`: 主服务端，负责 Web API、persona 协作、Telegram 调度
-- `@cyber-bowie/pi-channel-telegram`: Telegram 多 bot polling 通道
-- `@cyber-bowie/pi-skills-superpower`: 内建 superpower skill
-- `@cyber-bowie/pi-skills-search`: 从 finpal 抽出来的可插拔搜索 skill
-- `@cyber-bowie/pi-web-chat`: React + TypeScript 本地聊天前端
+- `@cyber-persona/pi-ai`: OpenAI 兼容模型适配层
+- `@cyber-persona/pi-agent-core`: agent runtime、SOUL 加载、skill registry
+- `@cyber-persona/pi-coding-agent`: CLI 入口
+- `@cyber-persona/pi-server`: 主服务端，负责 Web API、persona 协作、Telegram 调度
+- `@cyber-persona/pi-channel-telegram`: Telegram 多 bot polling 通道
+- `@cyber-persona/pi-skills-superpower`: 内建 superpower skill
+- `@cyber-persona/pi-skills-search`: 从 finpal 抽出来的可插拔搜索 skill
+- `@cyber-persona/pi-web-chat`: React + TypeScript 本地聊天前端
 
 ## 快速开始
 
@@ -228,7 +228,7 @@ TELEGRAM_BOTS_JSON=[{"token":"123456:aaa","personaId":"bowie","displayName":"呱
 
 ## Search Skill
 
-`@cyber-bowie/pi-skills-search` 已经是可插拔包，保留了原本比较像 finpal 的那条搜索逻辑：
+`@cyber-persona/pi-skills-search` 已经是可插拔包，保留了原本比较像 finpal 的那条搜索逻辑：
 
 - 先拆子问题
 - 多轮搜索

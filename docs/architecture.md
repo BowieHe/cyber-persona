@@ -1,8 +1,8 @@
-# Cyber Bowie Architecture
+# Cyber Persona Architecture
 
 ## Overview
 
-`cyber-bowie` 是一个围绕“人格化 agent”搭起来的 TypeScript monorepo。
+`cyber-persona` 是一个围绕“人格化 agent”搭起来的 TypeScript monorepo。
 
 核心目标不是只做一个会回复话的 bot，而是把这些能力拆成几层：
 

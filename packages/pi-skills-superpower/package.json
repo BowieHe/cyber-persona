@@ -1,12 +1,12 @@
 {
-  "name": "@cyber-bowie/pi-skills-superpower",
+  "name": "@cyber-persona/pi-skills-superpower",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "@cyber-bowie/pi-agent-core": "0.1.0"
+    "@cyber-persona/pi-agent-core": "0.1.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

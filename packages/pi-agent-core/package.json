@@ -1,12 +1,12 @@
 {
-  "name": "@cyber-bowie/pi-agent-core",
+  "name": "@cyber-persona/pi-agent-core",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "@cyber-bowie/pi-ai": "0.1.0"
+    "@cyber-persona/pi-ai": "0.1.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

@@ -1,16 +1,16 @@
 {
-  "name": "@cyber-bowie/pi-server",
+  "name": "@cyber-persona/pi-server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "@cyber-bowie/pi-ai": "0.1.0",
-    "@cyber-bowie/pi-agent-core": "0.1.0",
-    "@cyber-bowie/pi-channel-telegram": "0.1.0",
-    "@cyber-bowie/pi-skills-search": "0.1.0",
-    "@cyber-bowie/pi-skills-superpower": "0.1.0",
+    "@cyber-persona/pi-ai": "0.1.0",
+    "@cyber-persona/pi-agent-core": "0.1.0",
+    "@cyber-persona/pi-channel-telegram": "0.1.0",
+    "@cyber-persona/pi-skills-search": "0.1.0",
+    "@cyber-persona/pi-skills-superpower": "0.1.0",
     "dotenv": "^16.6.1"
   },
   "scripts": {
