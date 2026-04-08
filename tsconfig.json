@@ -21,6 +21,9 @@
     },
     {
       "path": "./packages/pi-coding-agent"
+    },
+    {
+      "path": "./packages/pi-tui"
     }
   ]
 }

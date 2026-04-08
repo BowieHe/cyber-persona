@@ -1,28 +1,27 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "composite": true,
-    "rootDir": "src",
-    "outDir": "dist"
-  },
-  "include": [
-    "src/**/*.ts"
-  ],
-  "references": [
-    {
-      "path": "../pi-ai"
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "composite": true,
+        "rootDir": "src",
+        "outDir": "dist",
+        "ignoreDeprecations": "5.0"
     },
-    {
-      "path": "../pi-agent-core"
-    },
-    {
-      "path": "../pi-channel-telegram"
-    },
-    {
-      "path": "../pi-skills-search"
-    },
-    {
-      "path": "../pi-skills-superpower"
-    }
-  ]
+    "include": ["src/**/*.ts"],
+    "references": [
+        {
+            "path": "../pi-ai"
+        },
+        {
+            "path": "../pi-agent-core"
+        },
+        {
+            "path": "../pi-channel-telegram"
+        },
+        {
+            "path": "../pi-skills-search"
+        },
+        {
+            "path": "../pi-skills-superpower"
+        }
+    ]
 }

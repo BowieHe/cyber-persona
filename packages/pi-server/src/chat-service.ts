@@ -14,6 +14,7 @@ import {
   createMcpSearchRuntime
 } from "@cyber-bowie/pi-skills-search";
 import { superpowerSkill } from "@cyber-bowie/pi-skills-superpower";
+import { debugAPI } from "./debug-api.js";
 
 export interface ChatServiceConfig {
   cwd: string;
@@ -340,12 +341,19 @@ export class ChatService {
     displayName?: string;
     text: string;
   }> {
+    const sessionId = options.sessionId || 'default';
     const personas = await this.listPersonas();
     const orchestrator = new Orchestrator(this.providerFactory(), personas);
 
     // 1. 创建执行计划
     const plan = await orchestrator.createPlan(message);
     console.log("[Orchestrator] Plan:", JSON.stringify(plan, null, 2));
+
+    // 记录 plan 事件
+    debugAPI.recordEvent(sessionId, {
+      type: 'plan',
+      payload: { steps: plan.steps }
+    });
 
     // 2. 执行开场白
     const announceStep = plan.steps.find(s => s.type === 'announce');
@@ -354,6 +362,10 @@ export class ChatService {
         type: "announce",
         text: announceStep.text
       };
+      debugAPI.recordEvent(sessionId, {
+        type: 'announce',
+        payload: { text: announceStep.text }
+      });
     }
 
     // 3. 收集所有 persona 步骤
@@ -370,8 +382,19 @@ export class ChatService {
     // 4.1 并行执行无依赖的 persona
     if (independentSteps.length > 0) {
       const promises = independentSteps.map(async (step) => {
+        // 检查并应用 steering
+        const steeringMessages = debugAPI.drainSteering(sessionId);
+        if (steeringMessages.length > 0) {
+          sharedContext.steering = steeringMessages.join('\n');
+        }
+
+        debugAPI.recordEvent(sessionId, {
+          type: 'persona_start',
+          payload: { personaId: step.personaId, dependsOn: [] }
+        });
+
         const result = await this.executePersona(step.personaId, message, sharedContext);
-        
+
         // 更新共享上下文
         if (result.sharedData) {
           for (const [key, value] of Object.entries(result.sharedData)) {
@@ -379,7 +402,12 @@ export class ChatService {
           }
         }
         completedPersonas.add(step.personaId);
-        
+
+        debugAPI.recordEvent(sessionId, {
+          type: 'persona_output',
+          payload: { personaId: result.personaId, displayName: result.displayName, text: result.text }
+        });
+
         return result;
       });
 
@@ -404,15 +432,31 @@ export class ChatService {
         }
       }
 
+      // 检查并应用 steering
+      const steeringMessages = debugAPI.drainSteering(sessionId);
+      if (steeringMessages.length > 0) {
+        sharedContext.steering = steeringMessages.join('\n');
+      }
+
+      debugAPI.recordEvent(sessionId, {
+        type: 'persona_start',
+        payload: { personaId: step.personaId, dependsOn: step.dependsOn }
+      });
+
       // 执行
       const result = await this.executePersona(step.personaId, message, sharedContext);
-      
+
       if (result.sharedData) {
         for (const [key, value] of Object.entries(result.sharedData)) {
           sharedContext[key] = String(value);
         }
       }
       completedPersonas.add(step.personaId);
+
+      debugAPI.recordEvent(sessionId, {
+        type: 'persona_output',
+        payload: { personaId: result.personaId, displayName: result.displayName, text: result.text }
+      });
 
       yield {
         type: "message",
@@ -421,6 +465,9 @@ export class ChatService {
         text: result.text
       };
     }
+
+    // 标记会话完成
+    debugAPI.completeSession(sessionId);
   }
 
   /**

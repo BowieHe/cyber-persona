@@ -1,0 +1,20 @@
+{
+  "_comment": "Bot配置 - 最多支持4个bot",
+  "bots": [
+    {
+      "personaId": "bowie",
+      "displayName": "呱吉",
+      "token": "${MAIN_BOT_TOKEN}"
+    },
+    {
+      "personaId": "researcher",
+      "displayName": "研究员",
+      "token": "${RESEARCHER_BOT_TOKEN}"
+    },
+    {
+      "personaId": "critic",
+      "displayName": "挑刺",
+      "token": "${CRITIC_BOT_TOKEN}"
+    }
+  ]
+}

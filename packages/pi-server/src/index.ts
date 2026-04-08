@@ -5,10 +5,12 @@ import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
 import {
   createTelegramSessionId,
-  parseTelegramBotConfigs,
   startTelegramPolling
 } from "@cyber-bowie/pi-channel-telegram";
+import { loadBotConfig, validateBotsConfig } from "./bot-config.js";
 import { ChatService } from "./chat-service.js";
+import { initCronJobs } from "./cron.js";
+import { debugAPI } from "./debug-api.js";
 
 loadEnv({
   path: resolve(process.cwd(), ".env"),
@@ -23,6 +25,9 @@ const webDistDir = resolve(packageRoot, "..", "pi-web-chat", "web", "dist");
 const chatService = new ChatService({
   cwd: process.cwd()
 });
+
+// 初始化定时任务（仅在 ENABLE_CRON=true 时启用）
+initCronJobs(chatService);
 
 interface ChatRequestBody {
   message?: string;
@@ -79,19 +84,42 @@ async function serveStatic(pathname: string): Promise<ResponseSpec> {
 }
 
 async function main(): Promise<void> {
-  const telegramBots = parseTelegramBotConfigs(process.env.TELEGRAM_BOTS_JSON);
+  const botConfigs = loadBotConfig();
+  validateBotsConfig(botConfigs);
   const telegramController =
-    telegramBots.length > 0
+    botConfigs.length > 0
       ? startTelegramPolling({
-          bots: telegramBots,
+          bots: botConfigs,
           async onMessage(event, sendMessage) {
-            const message = event.message.text;
+            const { bot, message } = event;
             const sessionId = createTelegramSessionId(event.message);
             
-            console.log(`[Telegram] Received message: ${message.substring(0, 50)}...`);
+            console.log(`[Telegram] Received message: ${message.text.substring(0, 50)}...`);
             
+            // Group 消息路由逻辑
+            if (message.chatType === 'group' || message.chatType === 'supergroup') {
+              // 检查是否 @mention 了某个 bot
+              const mentionedUsername = message.mentions[0]; // 取第一个 @mention
+
+              if (mentionedUsername) {
+                // 如果 @mention 了其他 bot，当前 bot 忽略
+                const myUsername = bot.username?.toLowerCase();
+                if (myUsername && mentionedUsername !== myUsername) {
+                  console.log(`[Telegram] Ignoring: message is for @${mentionedUsername}`);
+                  return undefined;
+                }
+              } else {
+                // 没有 @mention，只有主 bot (bowie) 处理，避免重复响应
+                if (bot.personaId !== 'bowie') {
+                  console.log(`[Telegram] Ignoring: no mention, only bowie responds`);
+                  return undefined;
+                }
+              }
+            }
+
             // 使用 orchestrateReply，即时发送每条消息
-            for await (const item of chatService.orchestrateReply(message, {
+
+            for await (const item of chatService.orchestrateReply(message.text, {
               sessionId
             })) {
               if (item.type === "announce") {
@@ -125,11 +153,49 @@ async function main(): Promise<void> {
     try {
       const url = new URL(request.url ?? "/", `http://${request.headers.host}`);
 
+      // Debug API routes
+      if (url.pathname.startsWith("/debug/")) {
+        // GET /debug/sessions - 列出所有活跃会话
+        if (request.method === "GET" && url.pathname === "/debug/sessions") {
+          const payload = jsonResponse(debugAPI.listSessions());
+          response.writeHead(payload.statusCode, payload.headers);
+          response.end(payload.body);
+          return;
+        }
+
+        // GET /debug/events/:sessionId?limit=50 - 获取会话事件
+        if (request.method === "GET" && url.pathname.startsWith("/debug/events/")) {
+          const sessionId = url.pathname.slice("/debug/events/".length);
+          const limit = Number(url.searchParams.get("limit") ?? "50");
+          const payload = jsonResponse(debugAPI.getEvents(sessionId, limit));
+          response.writeHead(payload.statusCode, payload.headers);
+          response.end(payload.body);
+          return;
+        }
+
+        // POST /debug/steer/:sessionId - 发送 steering 消息
+        if (request.method === "POST" && url.pathname.startsWith("/debug/steer/")) {
+          const sessionId = url.pathname.slice("/debug/steer/".length);
+          const body = await readJsonBody<{ message: string }>(request);
+          const success = debugAPI.steer(sessionId, body.message);
+          const payload = jsonResponse({ success });
+          response.writeHead(payload.statusCode, payload.headers);
+          response.end(payload.body);
+          return;
+        }
+
+        // 404 for unknown debug routes
+        const payload = jsonResponse({ error: "Unknown debug endpoint" }, 404);
+        response.writeHead(payload.statusCode, payload.headers);
+        response.end(payload.body);
+        return;
+      }
+
       if (request.method === "GET" && url.pathname === "/api/health") {
         const payload = jsonResponse({
           ok: true,
           service: "pi-server",
-          telegramBots: telegramBots.length
+          botConfigs: botConfigs.length
         });
         response.writeHead(payload.statusCode, payload.headers);
         response.end(payload.body);

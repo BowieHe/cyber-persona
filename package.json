@@ -13,19 +13,24 @@
     "dev": "node --use-env-proxy packages/pi-coding-agent/dist/index.js",
     "agent": "node --use-env-proxy packages/pi-coding-agent/dist/index.js",
     "server": "node --use-env-proxy packages/pi-server/dist/index.js",
-    "web": "node --use-env-proxy packages/pi-server/dist/index.js"
+    "web": "node --use-env-proxy packages/pi-server/dist/index.js",
+    "tui": "node packages/pi-tui/dist/index.js"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.18.0",
-    "dotenv": "^16.6.1",
+    "@types/node": "^24.5.2",
+    "@types/node-cron": "^3.0.11",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.2",
-    "@types/node": "^24.5.2",
+    "dotenv": "^16.6.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",
     "vite": "^7.1.5"
+  },
+  "dependencies": {
+    "node-cron": "^4.2.1"
   }
 }
