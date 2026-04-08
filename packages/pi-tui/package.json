@@ -14,11 +14,11 @@
     "dev": "tsc -p tsconfig.json --watch"
   },
   "dependencies": {
-    "ink": "^5.0.0"
+    "ink": "^6.2.0"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "@types/node": "^22.0.0",
+    "typescript": "^6.0.2"
   },
   "peerDependencies": {
     "react": "^19.0.0"
