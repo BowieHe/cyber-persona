@@ -45,6 +45,9 @@ class AssistantState(TypedDict, total=False):
     missing_information: str
     status_message: str
 
+    # --- Multi-Agent Routing ---
+    next_agent: str | None
+
 
 def create_default_state() -> AssistantState:
     """Create a fully initialized default state."""
@@ -72,6 +75,7 @@ def create_default_state() -> AssistantState:
         "current_harness_status": "",
         "missing_information": "",
         "status_message": "",
+        "next_agent": None,
     }
 
 
