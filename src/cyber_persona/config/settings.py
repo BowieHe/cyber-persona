@@ -36,6 +36,37 @@ class LLMSettings:
 
 
 @dataclass(frozen=True)
+class LightLLMSettings:
+    """Lightweight LLM provider configuration (OpenAI-compatible)."""
+
+    api_key: str
+    base_url: str
+    model: str
+    temperature: float
+
+    @classmethod
+    def from_env(cls) -> "LightLLMSettings":
+        """Create settings from environment variables.
+
+        Falls back to the main LLM env vars when light-specific vars are unset,
+        so existing deployments continue to work without extra configuration.
+        """
+        return cls(
+            api_key=os.getenv("OPENAI_LIGHT_API_KEY") or os.getenv("OPENAI_API_KEY", ""),
+            base_url=os.getenv("OPENAI_LIGHT_BASE_URL") or os.getenv("OPENAI_BASE_URL", "https://api.moonshot.cn/v1"),
+            model=os.getenv("OPENAI_LIGHT_MODEL") or os.getenv("OPENAI_MODEL", "kimi-k2.5"),
+            temperature=float(
+                os.getenv("OPENAI_LIGHT_TEMPERATURE") or os.getenv("OPENAI_TEMPERATURE", "1")
+            ),
+        )
+
+    def validate(self) -> None:
+        """Validate required settings."""
+        if not self.api_key:
+            raise ValueError("OPENAI_LIGHT_API_KEY (or fallback OPENAI_API_KEY) is required")
+
+
+@dataclass(frozen=True)
 class ServerSettings:
     """Server configuration."""
 
@@ -85,12 +116,14 @@ class Settings:
 
     def __init__(self) -> None:
         self.llm = LLMSettings.from_env()
+        self.llm_light = LightLLMSettings.from_env()
         self.server = ServerSettings.from_env()
         self.search = SearchSettings.from_env()
         self.project_root = Path(__file__).parent.parent.parent.parent
 
         # Validate
         self.llm.validate()
+        self.llm_light.validate()
 
 
 # Global settings singleton

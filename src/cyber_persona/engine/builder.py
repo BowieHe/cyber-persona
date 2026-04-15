@@ -134,14 +134,18 @@ from cyber_persona.engine.nodes.synthesizer import synthesizer_node
 
 def create_graph(
     llm: ChatOpenAI | None = None,
+    llm_light: ChatOpenAI | None = None,
     search_tool: SearchTool | None = None,
 ) -> CompiledStateGraph:
     """Create the unified graph with both CHAT and RESEARCH paths."""
     builder = GraphBuilder(llm=llm, search_tool=search_tool)
 
+    # Light model falls back to main llm if not provided
+    light = llm_light or llm
+
     # ---------- Nodes ----------
     # Intent router
-    builder.add_node("intent_router", intent_router_node(llm))
+    builder.add_node("intent_router", intent_router_node(light))
 
     # CHAT path (legacy simple chain)
     builder.add_node("chat_input", InputNode())
@@ -150,9 +154,9 @@ def create_graph(
 
     # RESEARCH path (stubs to be replaced in Phases 5-8)
     builder.add_node("retriever_agent", create_retriever_subgraph(llm))
-    builder.add_node("search_harness", search_harness_node(llm))
+    builder.add_node("search_harness", search_harness_node(light))
     builder.add_node("drafter", drafter_node(llm))
-    builder.add_node("fact_check_harness", fact_check_harness_node(llm))
+    builder.add_node("fact_check_harness", fact_check_harness_node(light))
     builder.add_node("debater_agent", create_debater_subgraph(llm))
     builder.add_node("synthesizer", synthesizer_node(llm))
     builder.add_node("error_handling", error_handling_node)

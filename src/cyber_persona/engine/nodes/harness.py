@@ -68,7 +68,7 @@ def search_harness_node(llm: ChatOpenAI | None = None):
         )
 
         messages = [
-            SystemMessage(content="你是一个严格的信息质量审查员。"),
+            SystemMessage(content="你是一个严格的信息质量审查员。请以 JSON 格式输出。"),
             HumanMessage(content=prompt),
         ]
 
@@ -117,7 +117,7 @@ def fact_check_harness_node(llm: ChatOpenAI | None = None):
         )
 
         messages = [
-            SystemMessage(content="你是一个零容忍的事实核查程序。"),
+            SystemMessage(content="你是一个零容忍的事实核查程序。请以 JSON 格式输出。"),
             HumanMessage(content=prompt),
         ]
 

@@ -21,8 +21,14 @@ def get_graph() -> StateGraph:
         base_url=settings.llm.base_url,
         temperature=settings.llm.temperature,
     )
+    llm_light = ChatOpenAI(
+        model=settings.llm_light.model,
+        api_key=settings.llm_light.api_key,
+        base_url=settings.llm_light.base_url,
+        temperature=settings.llm_light.temperature,
+    )
     search_tool = SearchTool()
-    return create_graph(llm=llm, search_tool=search_tool)
+    return create_graph(llm=llm, llm_light=llm_light, search_tool=search_tool)
 
 
 async def get_graph_async() -> AsyncGenerator[StateGraph, None]:

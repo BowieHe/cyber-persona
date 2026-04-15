@@ -7,6 +7,16 @@ coverage/
 .env.local
 .turbo/
 
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
 # Codex local files
 .codex
 codex

@@ -61,7 +61,7 @@ def intent_router_node(llm: ChatOpenAI | None = None):
         logger.info("IntentRouter classifying query=%r", user_query)
 
         messages = [
-            SystemMessage(content="你是一个意图分类器，只输出 'CHAT' 或 'RESEARCH'。"),
+            SystemMessage(content="你是一个意图分类器，只输出 'CHAT' 或 'RESEARCH'。请以 JSON 格式输出。"),
             HumanMessage(content=INTENT_ROUTER_PROMPT.format(user_query=user_query)),
         ]
 
