@@ -14,15 +14,9 @@ from cyber_persona.engine.nodes.intent_router import (
     intent_router_node,
     intent_router_router,
 )
-from cyber_persona.engine.nodes.harness import (
-    search_harness_node,
-    fact_check_harness_node,
-)
+from cyber_persona.engine.nodes.harness import fact_check_harness_node
 from cyber_persona.engine.nodes.error_handler import error_handling_node
-from cyber_persona.engine.routers import (
-    search_harness_router,
-    fact_check_harness_router,
-)
+from cyber_persona.engine.routers import fact_check_harness_router
 from cyber_persona.models import AssistantState, create_default_state
 from cyber_persona.tools import SearchTool
 
@@ -116,7 +110,7 @@ class GraphBuilder:
 # Placeholder nodes for incremental build-out (Phases 5-8)
 # ---------------------------------------------------------------------------
 
-from cyber_persona.engine.nodes.retriever.graph import create_retriever_subgraph
+from cyber_persona.engine.nodes.research_supervisor.graph import create_research_supervisor_subgraph
 
 
 from cyber_persona.engine.nodes.drafter import drafter_node
@@ -152,9 +146,8 @@ def create_graph(
     builder.add_node("chat_llm", LLMNode(llm))
     builder.add_node("format_output", OutputNode())
 
-    # RESEARCH path (stubs to be replaced in Phases 5-8)
-    builder.add_node("retriever_agent", create_retriever_subgraph(llm))
-    builder.add_node("search_harness", search_harness_node(light))
+    # RESEARCH path
+    builder.add_node("research_supervisor", create_research_supervisor_subgraph(light))
     builder.add_node("drafter", drafter_node(llm))
     builder.add_node("fact_check_harness", fact_check_harness_node(light))
     builder.add_node("debater_agent", create_debater_subgraph(llm))
@@ -168,7 +161,7 @@ def create_graph(
     builder.add_edge("format_output", END)
 
     # RESEARCH path skeleton
-    builder.add_edge("retriever_agent", "search_harness")
+    builder.add_edge("research_supervisor", "drafter")
     builder.add_edge("drafter", "fact_check_harness")
     builder.add_edge("debater_agent", "synthesizer")
     builder.add_edge("synthesizer", END)
@@ -181,19 +174,7 @@ def create_graph(
         intent_router_router,
         {
             "chat": "chat_input",
-            "research": "retriever_agent",
-        },
-    )
-
-    # Search harness -> draft, retry, or quit
-    builder.add_conditional_edges(
-        "search_harness",
-        search_harness_router,
-        {
-            "continue_to_draft": "drafter",
-            "continue_to_draft_with_warning": "drafter",
-            "rewrite_search_query": "retriever_agent",
-            "force_quit": "error_handling",
+            "research": "research_supervisor",
         },
     )
 

@@ -30,6 +30,11 @@ class AssistantState(TypedDict, total=False):
     llm_response: str
     error: str | None
 
+    # --- Research Supervisor State ---
+    research_plan: list[str]
+    sub_agent_results: list[dict[str, Any]]
+    gather_round: int
+
     # --- Harness Regulatory State ---
     attempted_queries: Annotated[list[str], operator.add]
     correction_log: Annotated[list[str], operator.add]
@@ -56,6 +61,9 @@ def create_default_state() -> AssistantState:
         "output": "",
         "llm_response": "",
         "error": None,
+        "research_plan": [],
+        "sub_agent_results": [],
+        "gather_round": 0,
         "attempted_queries": [],
         "correction_log": [],
         "search_retry_count": 0,
