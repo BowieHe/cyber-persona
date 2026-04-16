@@ -1,24 +1,12 @@
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import HumanMessage
-from cyber_persona.config import get_settings
-
-
-def _get_or_create_llm(llm: ChatOpenAI | None = None) -> ChatOpenAI:
-    if llm is not None:
-        return llm
-    settings = get_settings()
-    return ChatOpenAI(
-        model=settings.llm.model,
-        api_key=settings.llm.api_key,
-        base_url=settings.llm.base_url,
-        temperature=settings.llm.temperature,
-    )
+from cyber_persona.engine.llm_factory import get_llm
 
 
 def create_chat_agent(llm: ChatOpenAI | None = None):
     """Chat specialist as a ReAct agent (no tools needed)."""
-    llm_instance = _get_or_create_llm(llm)
+    llm_instance = get_llm(llm)
 
     # We need a small wrapper because create_react_agent works with messages,
     # but we want to seed it from user_query and return next_agent.
@@ -40,11 +28,15 @@ def create_chat_agent(llm: ChatOpenAI | None = None):
                 lc_messages.append(m)
         if not lc_messages and user_query:
             lc_messages = [HumanMessage(content=user_query)]
+        logger = __import__("logging").getLogger(__name__)
+        logger.info("ChatAgent invoking agent with %d messages", len(lc_messages))
         result = await agent.ainvoke({"messages": lc_messages})
+        logger.info("ChatAgent agent returned %d messages", len(result.get("messages", [])))
         return {
             "messages": result["messages"],
             "output": result["messages"][-1].content if result["messages"] else "",
             "next_agent": "supervisor",
+            "last_specialist": "chat_agent",
             "status_message": "chat 完成",
         }
 

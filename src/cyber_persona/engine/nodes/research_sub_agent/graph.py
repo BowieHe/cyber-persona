@@ -8,22 +8,10 @@ from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from langgraph.graph.state import CompiledStateGraph
 
-from cyber_persona.config import get_settings
+from cyber_persona.engine.llm_factory import get_llm
 from cyber_persona.tools.langchain_compat import web_search
 
 logger = logging.getLogger(__name__)
-
-
-def _get_or_create_llm(llm: ChatOpenAI | None = None) -> ChatOpenAI:
-    if llm is not None:
-        return llm
-    settings = get_settings()
-    return ChatOpenAI(
-        model=settings.llm_light.model,
-        api_key=settings.llm_light.api_key,
-        base_url=settings.llm_light.base_url,
-        temperature=settings.llm_light.temperature,
-    )
 
 
 SUMMARIZE_PROMPT = """请对搜索结果进行简要总结，提取与用户问题相关的核心信息。
@@ -40,7 +28,7 @@ SUMMARIZE_PROMPT = """请对搜索结果进行简要总结，提取与用户问�
 
 def create_search_agent(llm: ChatOpenAI | None = None) -> CompiledStateGraph:
     """Build a single-topic research agent using ReAct."""
-    llm_instance = _get_or_create_llm(llm)
+    llm_instance = get_llm(llm, light=True)
     prompt = (
         "你是一个研究子代理。你的任务是：\n"
         "1. 使用 web_search 工具搜索与用户问题相关的信息。\n"

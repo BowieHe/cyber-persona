@@ -6,22 +6,10 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from cyber_persona.config import get_settings
+from cyber_persona.engine.llm_factory import get_llm
 from cyber_persona.models import AssistantState
 
 logger = logging.getLogger(__name__)
-
-
-def _get_or_create_llm(llm: ChatOpenAI | None = None) -> ChatOpenAI:
-    if llm is not None:
-        return llm
-    settings = get_settings()
-    return ChatOpenAI(
-        model=settings.llm.model,
-        api_key=settings.llm.api_key,
-        base_url=settings.llm.base_url,
-        temperature=settings.llm.temperature,
-    )
 
 
 BLUE_TEAM_PROMPT = """你是蓝方（熊派 / Blue Team）。你的职责是"挑毛病"。
@@ -43,7 +31,7 @@ BLUE_TEAM_PROMPT = """你是蓝方（熊派 / Blue Team）。你的职责是"挑
 
 def blue_team_node(llm: ChatOpenAI | None = None):
     """Factory for the blue team node."""
-    llm_instance = _get_or_create_llm(llm)
+    llm_instance = get_llm(llm)
 
     async def _node(state: AssistantState) -> dict[str, Any]:
         draft = state.get("draft", "")

@@ -9,22 +9,10 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from cyber_persona.config import get_settings
+from cyber_persona.engine.llm_factory import get_llm
 from cyber_persona.models import AssistantState, HarnessEvaluation
 
 logger = logging.getLogger(__name__)
-
-
-def _get_or_create_llm(llm: ChatOpenAI | None = None) -> ChatOpenAI:
-    if llm is not None:
-        return llm
-    settings = get_settings()
-    return ChatOpenAI(
-        model=settings.llm_light.model,
-        api_key=settings.llm_light.api_key,
-        base_url=settings.llm_light.base_url,
-        temperature=settings.llm_light.temperature,
-    )
 
 
 REFLECT_PROMPT = """你是一个严苛的金融信息质量审查员。请评估当前检索到的信息是否足够回答用户的原始问题。
@@ -43,7 +31,7 @@ REFLECT_PROMPT = """你是一个严苛的金融信息质量审查员。请评估
 
 def reflect_node(llm: ChatOpenAI | None = None):
     """Factory for the reflect node."""
-    llm_instance = _get_or_create_llm(llm)
+    llm_instance = get_llm(llm)
     structured_llm = llm_instance.with_structured_output(HarnessEvaluation)
 
     async def _node(state: AssistantState) -> dict[str, Any]:

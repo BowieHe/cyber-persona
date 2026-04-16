@@ -4,26 +4,14 @@ from typing import Any
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
-from cyber_persona.config import get_settings
+from cyber_persona.engine.llm_factory import get_llm
 
 logger = logging.getLogger(__name__)
 
 
-def _get_or_create_llm(llm: ChatOpenAI | None = None) -> ChatOpenAI:
-    if llm is not None:
-        return llm
-    settings = get_settings()
-    return ChatOpenAI(
-        model=settings.llm.model,
-        api_key=settings.llm.api_key,
-        base_url=settings.llm.base_url,
-        temperature=0.3,
-    )
-
-
 def create_supervisor_agent(llm: ChatOpenAI | None = None):
     """Supervisor that routes to specialist agents via handoff tools."""
-    llm_instance = _get_or_create_llm(llm)
+    llm_instance = get_llm(llm, temperature=0.3)
 
     @tool
     def handoff_to_chat_agent() -> str:
@@ -82,7 +70,9 @@ def create_supervisor_agent(llm: ChatOpenAI | None = None):
             elif hasattr(m, "type"):
                 lc_messages.append(m)
 
+        logger.info("Supervisor invoking agent with %d messages", len(lc_messages))
         result = await agent.ainvoke({"messages": lc_messages})
+        logger.info("Supervisor agent returned %d messages", len(result.get("messages", [])))
         # The last message should be an AIMessage with a tool call result
         # Extract the chosen agent from tool results
         next_agent = None

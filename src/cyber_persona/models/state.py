@@ -48,6 +48,10 @@ class AssistantState(TypedDict, total=False):
     # --- Multi-Agent Routing ---
     next_agent: str | None
 
+    # --- Output Verifier ---
+    last_specialist: str
+    correction_directive: str
+
 
 def create_default_state() -> AssistantState:
     """Create a fully initialized default state."""
@@ -76,6 +80,8 @@ def create_default_state() -> AssistantState:
         "missing_information": "",
         "status_message": "",
         "next_agent": None,
+        "last_specialist": "",
+        "correction_directive": "",
     }
 
 

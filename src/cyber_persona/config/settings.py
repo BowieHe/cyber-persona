@@ -18,6 +18,7 @@ class LLMSettings:
     base_url: str
     model: str
     temperature: float
+    extra_body: dict
 
     @classmethod
     def from_env(cls) -> "LLMSettings":
@@ -27,6 +28,7 @@ class LLMSettings:
             base_url=os.getenv("OPENAI_BASE_URL", "https://api.moonshot.cn/v1"),
             model=os.getenv("OPENAI_MODEL", "kimi-k2.5"),
             temperature=float(os.getenv("OPENAI_TEMPERATURE", "1")),
+            extra_body={"thinking": {"type": "disabled"}},
         )
 
     def validate(self) -> None:
@@ -43,6 +45,7 @@ class LightLLMSettings:
     base_url: str
     model: str
     temperature: float
+    extra_body: dict
 
     @classmethod
     def from_env(cls) -> "LightLLMSettings":
@@ -58,6 +61,7 @@ class LightLLMSettings:
             temperature=float(
                 os.getenv("OPENAI_LIGHT_TEMPERATURE") or os.getenv("OPENAI_TEMPERATURE", "1")
             ),
+            extra_body={"thinking": {"type": "disabled"}},
         )
 
     def validate(self) -> None:

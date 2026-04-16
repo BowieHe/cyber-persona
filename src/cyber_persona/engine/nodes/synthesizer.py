@@ -6,22 +6,10 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from cyber_persona.config import get_settings
+from cyber_persona.engine.llm_factory import get_llm
 from cyber_persona.models import AssistantState
 
 logger = logging.getLogger(__name__)
-
-
-def _get_or_create_llm(llm: ChatOpenAI | None = None) -> ChatOpenAI:
-    if llm is not None:
-        return llm
-    settings = get_settings()
-    return ChatOpenAI(
-        model=settings.llm.model,
-        api_key=settings.llm.api_key,
-        base_url=settings.llm.base_url,
-        temperature=settings.llm.temperature,
-    )
 
 
 SYNTHESIZER_PROMPT = """你是系统的最终发言人（首席整合官）。
@@ -47,7 +35,7 @@ SYNTHESIZER_PROMPT = """你是系统的最终发言人（首席整合官）。
 
 def synthesizer_node(llm: ChatOpenAI | None = None):
     """Factory for the synthesizer node."""
-    llm_instance = _get_or_create_llm(llm)
+    llm_instance = get_llm(llm)
 
     async def _node(state: AssistantState) -> dict[str, Any]:
         draft = state.get("draft", "")
@@ -79,6 +67,7 @@ def synthesizer_node(llm: ChatOpenAI | None = None):
         return {
             "final_answer": final_answer,
             "output": final_answer,
+            "last_specialist": "synthesizer",
             "status_message": "最终答案整合完成",
         }
 

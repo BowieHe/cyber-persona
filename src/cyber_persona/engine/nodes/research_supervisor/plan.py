@@ -10,7 +10,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
-from cyber_persona.config import get_settings
+from cyber_persona.engine.llm_factory import get_llm
 from cyber_persona.models import AssistantState
 
 logger = logging.getLogger(__name__)
@@ -23,18 +23,6 @@ class ResearchPlanOutput(BaseModel):
         description="2-4 个明确的子主题，每个子主题适合独立搜索。"
     )
     reasoning: str = Field(description="简要解释为什么拆分这些子主题。")
-
-
-def _get_or_create_llm(llm: ChatOpenAI | None = None) -> ChatOpenAI:
-    if llm is not None:
-        return llm
-    settings = get_settings()
-    return ChatOpenAI(
-        model=settings.llm_light.model,
-        api_key=settings.llm_light.api_key,
-        base_url=settings.llm_light.base_url,
-        temperature=settings.llm_light.temperature,
-    )
 
 
 PLAN_PROMPT = """你是一位专业的金融研究分析师。请根据用户的研究问题，拆分成 2-4 个明确的子主题，每个子主题适合独立进行网络搜索。
@@ -50,7 +38,7 @@ PLAN_PROMPT = """你是一位专业的金融研究分析师。请根据用户的
 
 def plan_node(llm: ChatOpenAI | None = None):
     """Factory for the plan node."""
-    llm_instance = _get_or_create_llm(llm)
+    llm_instance = get_llm(llm)
     structured_llm = llm_instance.with_structured_output(ResearchPlanOutput)
 
     async def _node(state: AssistantState) -> dict[str, Any]:

@@ -20,12 +20,14 @@ def get_graph() -> StateGraph:
         api_key=settings.llm.api_key,
         base_url=settings.llm.base_url,
         temperature=settings.llm.temperature,
+        extra_body=settings.llm.extra_body,
     )
     llm_light = ChatOpenAI(
         model=settings.llm_light.model,
         api_key=settings.llm_light.api_key,
         base_url=settings.llm_light.base_url,
         temperature=settings.llm_light.temperature,
+        extra_body=settings.llm_light.extra_body,
     )
     search_tool = SearchTool()
     return create_graph(llm=llm, llm_light=llm_light, search_tool=search_tool)

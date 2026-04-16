@@ -5,13 +5,17 @@ via HTTP transport to perform web searches.
 """
 
 import json
-from dataclasses import dataclass
+import logging
+import os
+from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urljoin
 
 import httpx
 
 from cyber_persona.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -34,7 +38,8 @@ class SearchToolConfig:
     auth_token: str | None = None
     auth_header: str = "Authorization"
     result_count: int = 10
-    timeout: float = 30.0
+    timeout: float = 10.0
+    endpoints: list[str] = field(default_factory=lambda: ["", "/tools/call", "/mcp/tools/call", "/api/tools/call"])
 
 
 class SearchTool:
@@ -104,21 +109,31 @@ class SearchTool:
             },
         }
 
-        # MCP servers typically expose tools at /tools or /mcp endpoint
-        # Try common endpoints
-        endpoints = ["/tools/call", "/mcp/tools/call", "/api/tools/call"]
+        logger.info(
+            "SearchTool querying=%r tool=%r endpoints=%s",
+            query,
+            self.config.tool_name,
+            self.config.endpoints,
+        )
 
         last_error: Exception | None = None
-        for endpoint in endpoints:
+        for endpoint in self.config.endpoints:
             try:
-                url = urljoin(self.config.server_url.rstrip("/") + "/", endpoint)
+                if endpoint:
+                    url = urljoin(self.config.server_url.rstrip("/") + "/", endpoint)
+                else:
+                    url = self.config.server_url.rstrip("/")
+                logger.info("SearchTool trying endpoint: %s", url)
                 response = await client.post(url, json=payload)
                 response.raise_for_status()
 
                 data = response.json()
-                return self._parse_results(data)
+                results = self._parse_results(data)
+                logger.info("SearchTool success at %s with %d results", url, len(results))
+                return results
 
             except (httpx.HTTPError, json.JSONDecodeError) as e:
+                logger.warning("SearchTool failed at %s: %s", url, e)
                 last_error = e
                 continue
 

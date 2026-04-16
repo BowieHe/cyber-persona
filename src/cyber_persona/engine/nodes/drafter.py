@@ -6,22 +6,10 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from cyber_persona.config import get_settings
+from cyber_persona.engine.llm_factory import get_llm
 from cyber_persona.models import AssistantState
 
 logger = logging.getLogger(__name__)
-
-
-def _get_or_create_llm(llm: ChatOpenAI | None = None) -> ChatOpenAI:
-    if llm is not None:
-        return llm
-    settings = get_settings()
-    return ChatOpenAI(
-        model=settings.llm.model,
-        api_key=settings.llm.api_key,
-        base_url=settings.llm.base_url,
-        temperature=settings.llm.temperature,
-    )
 
 
 BASE_DRAFTER_PROMPT = """你是一位资深的金融分析师。请基于以下检索到的上下文，撰写一份包含明确观点的分析报告初稿。
@@ -40,7 +28,7 @@ BASE_DRAFTER_PROMPT = """你是一位资深的金融分析师。请基于以下�
 
 def drafter_node(llm: ChatOpenAI | None = None):
     """Factory for the drafter node with dynamic prompt injection."""
-    llm_instance = _get_or_create_llm(llm)
+    llm_instance = get_llm(llm)
 
     async def _node(state: AssistantState) -> dict[str, Any]:
         user_query = state.get("user_query", "")

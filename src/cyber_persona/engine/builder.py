@@ -16,6 +16,7 @@ from cyber_persona.engine.nodes.research_supervisor.graph import create_research
 from cyber_persona.engine.nodes.drafter import drafter_node
 from cyber_persona.engine.nodes.debater.graph import create_debater_subgraph
 from cyber_persona.engine.nodes.synthesizer import synthesizer_node
+from cyber_persona.engine.nodes.output_verifier import output_verifier_node, verifier_router
 from cyber_persona.models import AssistantState, create_default_state
 from cyber_persona.tools import SearchTool
 
@@ -109,6 +110,7 @@ def create_graph(
     builder.add_node("debater_agent", create_debater_subgraph(llm))
     builder.add_node("synthesizer", synthesizer_node(llm))
     builder.add_node("error_handling", error_handling_node)
+    builder.add_node("output_verifier", output_verifier_node(light))
 
     # Supervisor routing
     builder.add_conditional_edges(
@@ -124,8 +126,8 @@ def create_graph(
         },
     )
 
-    # Specialists return to supervisor (or END)
-    builder.add_edge("chat_agent", "supervisor")
+    # Specialists return to supervisor, verifier, or END
+    builder.add_edge("chat_agent", "output_verifier")
     builder.add_edge("research_orchestrator", "supervisor")
     builder.add_edge("drafter", "fact_check_harness")
     builder.add_conditional_edges(
@@ -138,8 +140,17 @@ def create_graph(
         },
     )
     builder.add_edge("debater_agent", "supervisor")
-    builder.add_edge("synthesizer", END)
+    builder.add_edge("synthesizer", "output_verifier")
     builder.add_edge("error_handling", END)
+    builder.add_conditional_edges(
+        "output_verifier",
+        verifier_router,
+        {
+            "pass": END,
+            "retry_chat_agent": "chat_agent",
+            "retry_synthesizer": "synthesizer",
+        },
+    )
 
     builder.set_entry_point("supervisor")
     return builder.build()

@@ -52,7 +52,7 @@ class ChatClient:
                 self.chat_url,
                 json=payload,
                 headers={"Accept": "text/event-stream"},
-                timeout=60.0,
+                timeout=300.0,
             ) as response:
                 response.raise_for_status()
 
@@ -91,7 +91,7 @@ class ChatClient:
                 self.chat_url,
                 json=payload,
                 headers={"Accept": "text/event-stream"},
-                timeout=60.0,
+                timeout=300.0,
             ) as response:
                 response.raise_for_status()
 

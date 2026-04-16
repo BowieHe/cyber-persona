@@ -6,22 +6,10 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from cyber_persona.config import get_settings
+from cyber_persona.engine.llm_factory import get_llm
 from cyber_persona.models import AssistantState, HarnessEvaluation
 
 logger = logging.getLogger(__name__)
-
-
-def _get_or_create_llm(llm: ChatOpenAI | None = None) -> ChatOpenAI:
-    if llm is not None:
-        return llm
-    settings = get_settings()
-    return ChatOpenAI(
-        model=settings.llm.model,
-        api_key=settings.llm.api_key,
-        base_url=settings.llm.base_url,
-        temperature=settings.llm.temperature,
-    )
 
 
 SEARCH_HARNESS_PROMPT = """你是一个严苛的金融信息质量审查员。
@@ -51,7 +39,7 @@ FACT_CHECK_HARNESS_PROMPT = """你是一个以“零容忍”著称的事实核�
 
 def search_harness_node(llm: ChatOpenAI | None = None):
     """Factory for the search quality harness node."""
-    llm_instance = _get_or_create_llm(llm)
+    llm_instance = get_llm(llm)
     structured_llm = llm_instance.with_structured_output(HarnessEvaluation)
 
     async def _node(state: AssistantState) -> dict[str, Any]:
@@ -101,7 +89,7 @@ def search_harness_node(llm: ChatOpenAI | None = None):
 
 def fact_check_harness_node(llm: ChatOpenAI | None = None):
     """Factory for the fact-check harness node."""
-    llm_instance = _get_or_create_llm(llm)
+    llm_instance = get_llm(llm)
     structured_llm = llm_instance.with_structured_output(HarnessEvaluation)
 
     async def _node(state: AssistantState) -> dict[str, Any]:

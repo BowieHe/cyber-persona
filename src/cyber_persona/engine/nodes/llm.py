@@ -7,7 +7,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from cyber_persona.engine.nodes.base import BaseNode
-from cyber_persona.config import get_settings
+from cyber_persona.engine.llm_factory import get_llm
 
 logger = logging.getLogger(__name__)
 
@@ -17,19 +17,6 @@ class LLMNode(BaseNode):
 
     def __init__(self, llm: ChatOpenAI | None = None) -> None:
         super().__init__(name="llm", llm=llm)
-
-    def _get_or_create_llm(self) -> ChatOpenAI:
-        """Get existing LLM or create new one from settings."""
-        if self.llm:
-            return self.llm
-
-        settings = get_settings()
-        return ChatOpenAI(
-            model=settings.llm.model,
-            api_key=settings.llm.api_key,
-            base_url=settings.llm.base_url,
-            temperature=settings.llm.temperature,
-        )
 
     def _convert_messages(self, messages: list[dict[str, Any]]) -> list:
         """Convert dict messages to LangChain messages."""
@@ -49,7 +36,7 @@ class LLMNode(BaseNode):
 
     def execute(self, state: dict[str, Any]) -> dict[str, Any]:
         """Call LLM and update state with response."""
-        llm = self._get_or_create_llm()
+        llm = get_llm(self.llm)
         messages = state.get("messages", [])
 
         # Convert and call LLM
