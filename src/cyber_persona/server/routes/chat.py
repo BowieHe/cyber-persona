@@ -27,7 +27,7 @@ ALLOWED_SSE_NODES = {
     "router",
     "verifier",
     "chat_agent",
-    "research_supervisor",
+    "research_orchestrator",
     "plan",
     "gather",
     "reflect",

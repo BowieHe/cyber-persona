@@ -57,7 +57,7 @@ export const NODE_NAME_MAP: Record<string, string> = {
   verifier: "质量检查",
   supervisor: "调度器",
   chat_agent: "对话 Agent",
-  research_supervisor: "研究调度",
+  research_orchestrator: "研究调度",
   plan: "研究规划",
   gather: "信息收集",
   reflect: "反思评估",

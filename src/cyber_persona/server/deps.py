@@ -8,7 +8,6 @@ from langgraph.graph import StateGraph
 
 from cyber_persona.config import get_settings
 from cyber_persona.engine import create_graph
-from cyber_persona.tools import SearchTool
 
 
 @lru_cache()
@@ -29,8 +28,7 @@ def get_graph() -> StateGraph:
         temperature=settings.llm_light.temperature,
         extra_body=settings.llm_light.extra_body,
     )
-    search_tool = SearchTool()
-    return create_graph(llm=llm, llm_light=llm_light, search_tool=search_tool)
+    return create_graph(llm=llm, llm_light=llm_light)
 
 
 async def get_graph_async() -> AsyncGenerator[StateGraph, None]:

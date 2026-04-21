@@ -79,6 +79,7 @@ def drafter_node(llm: ChatOpenAI | None = None):
         return {
             "draft": draft,
             "status_message": "初稿撰写完成",
+            "execution_log": [f"drafter: 撰写初稿完成，长度 {len(draft)} 字符"],
         }
 
     return _node

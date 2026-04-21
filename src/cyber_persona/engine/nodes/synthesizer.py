@@ -14,20 +14,15 @@ logger = logging.getLogger(__name__)
 
 SYNTHESIZER_PROMPT = """你是系统的最终发言人（首席整合官）。
 
-你的任务是将【初稿】（核心基调）和【辩论实录】（风险与机会补充）进行中和与排版，向用户交付一份既有主线逻辑，又兼顾多方风险提示的高质量深度回答。
+你的任务是将已有的研究信息整合为一份高质量、结构清晰的最终答案，直接回复用户。
 
 要求：
-1. 保留初稿的核心投资观点和关键数据。
-2. 在适当位置融入红方（机会）和蓝方（风险）的论据，形成平衡的视角。
-3. 如果辩论实录中提出了与初稿矛盾的事实，请优先以风险提示的方式呈现，不要掩盖。
-4. 结构清晰，分点论述，适合直接呈现给用户。
-5. 不要提及"初稿"、"红方"、"蓝方"等内部术语，用客观中立的口吻输出。
+1. 保留核心投资观点和关键数据。
+2. 结构清晰，分点论述，适合直接呈现给用户。
+3. 不要提及"初稿"、"红方"、"蓝方"等内部术语，用客观中立的口吻输出。
+4. 如果信息有缺失，请客观指出，不要编造。
 
-初稿：
-{draft}
-
-辩论实录：
-{debate_log}
+{content_section}
 
 用户问题：{user_query}
 """
@@ -40,17 +35,29 @@ def synthesizer_node(llm: ChatOpenAI | None = None):
     async def _node(state: AssistantState) -> dict[str, Any]:
         draft = state.get("draft", "")
         debate_log = state.get("debate_log", [])
+        retrieved_context = state.get("retrieved_context", [])
         user_query = state.get("user_query", "")
 
         logger.info(
-            "Synthesizer merging draft_length=%d debate_entries=%d",
+            "Synthesizer merging draft_length=%d debate_entries=%d context_len=%d",
             len(draft),
             len(debate_log),
+            len(retrieved_context),
         )
 
+        # Build content section based on available inputs
+        sections: list[str] = []
+        if draft:
+            sections.append(f"初稿：\n{draft}")
+        if debate_log:
+            sections.append(f"辩论实录：\n{'\n'.join(debate_log)}")
+        if retrieved_context and not draft:
+            sections.append(f"检索到的信息：\n{'\n'.join(retrieved_context[:20])}")
+
+        content_section = "\n\n".join(sections) if sections else "（无前置内容）"
+
         prompt = SYNTHESIZER_PROMPT.format(
-            draft=draft,
-            debate_log="\n".join(debate_log) if debate_log else "无",
+            content_section=content_section,
             user_query=user_query,
         )
 
@@ -69,6 +76,7 @@ def synthesizer_node(llm: ChatOpenAI | None = None):
             "output": final_answer,
             "last_specialist": "synthesizer",
             "status_message": "最终答案整合完成",
+            "execution_log": [f"synthesizer: 整合最终答案完成，长度 {len(final_answer)} 字符"],
         }
 
     return _node
