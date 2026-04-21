@@ -153,21 +153,28 @@ class SearchTool:
         response.raise_for_status()
 
         data = response.json()
+        logger.debug("SearchTool raw response: %s", json.dumps(data, ensure_ascii=False)[:500])
         results = self._parse_results(data)
         logger.info("SearchTool success with %d results", len(results))
         return results
 
     def _parse_results(self, data: dict[str, Any]) -> list[SearchResultItem]:
-        """Parse MCP tool response into search results.
+        """Parse MCP JSON-RPC 2.0 tool response into search results.
 
         Args:
-            data: Response data from MCP server.
+            data: Response data from MCP server (JSON-RPC 2.0 format).
 
         Returns:
             List of parsed search result items.
         """
-        # MCP tool responses typically have content array
-        content = data.get("content", [])
+        # Handle JSON-RPC error responses
+        if "error" in data:
+            logger.warning("SearchTool MCP error: %s", data["error"])
+            return []
+
+        # MCP JSON-RPC 2.0: content is inside result
+        result = data.get("result", {})
+        content = result.get("content", []) if isinstance(result, dict) else []
 
         # Find text content
         text_content = ""
