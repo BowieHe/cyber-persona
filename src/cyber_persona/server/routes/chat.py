@@ -106,6 +106,13 @@ async def chat_endpoint(
                 flow_chain = " -> ".join(visited_nodes)
                 logger.info("Execution flow: %s", flow_chain)
 
+                # Emit tool_call events before the node_complete so they appear
+                # in the timeline as child steps of the current node.
+                tool_calls = node_data.get("tool_calls", []) if isinstance(node_data, dict) else []
+                if tool_calls:
+                    for tc in tool_calls:
+                        yield f"data: {json.dumps({'type': 'tool_call', 'node': node_name, 'data': _sanitize_for_json(tc)})}\n\n"
+
                 # Skip internal subgraph nodes to avoid flooding the client
                 if node_name not in ALLOWED_SSE_NODES:
                     logger.debug("Filtering out internal node event: %s", node_name)

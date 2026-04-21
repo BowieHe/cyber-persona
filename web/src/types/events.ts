@@ -1,9 +1,15 @@
 export interface StreamEvent {
-  type: "node_complete" | "flow_update" | "done" | "error";
+  type: "node_complete" | "flow_update" | "tool_call" | "done" | "error";
   node?: string;
   data?: Record<string, unknown>;
   message?: string;
   flow?: string[];
+}
+
+export interface ToolCall {
+  name: string;
+  args: Record<string, unknown>;
+  result?: string;
 }
 
 export interface NodeData {
@@ -16,6 +22,7 @@ export interface NodeData {
   correction_directive?: string;
   missing_information?: string;
   research_plan?: string[];
+  tool_calls?: ToolCall[];
   [key: string]: unknown;
 }
 
@@ -28,6 +35,7 @@ export interface NodeInfo {
   statusMessage: string;
   startTime: number;
   endTime?: number;
+  toolCalls?: ToolCall[];
 }
 
 export interface Message {

@@ -53,6 +53,9 @@ class AssistantState(TypedDict, total=False):
     last_specialist: str
     correction_directive: str
 
+    # --- Tool Call History ---
+    tool_calls: Annotated[list[dict[str, Any]], operator.add]
+
 
 def create_default_state() -> AssistantState:
     """Create a fully initialized default state."""
@@ -84,6 +87,7 @@ def create_default_state() -> AssistantState:
         "next_agent": None,
         "last_specialist": "",
         "correction_directive": "",
+        "tool_calls": [],
     }
 
 

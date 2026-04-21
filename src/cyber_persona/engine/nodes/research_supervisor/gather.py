@@ -20,6 +20,27 @@ logger = logging.getLogger(__name__)
 _MAX_SUB_AGENT_CONCURRENCY = 2
 
 
+def _extract_tool_calls(messages: list) -> list[dict[str, Any]]:
+    """Extract tool call history from ReAct agent messages.
+
+    Returns a list of dicts with keys: name, args, result.
+    """
+    tool_calls: list[dict[str, Any]] = []
+    for msg in messages:
+        if hasattr(msg, "tool_calls") and msg.tool_calls:
+            for tc in msg.tool_calls:
+                tool_calls.append({
+                    "name": tc.get("name", ""),
+                    "args": tc.get("args", {}),
+                    "result": None,
+                })
+        elif getattr(msg, "type", None) == "tool" and tool_calls:
+            # Attach the tool result to the most recent pending tool call
+            tool_calls[-1]["result"] = msg.content
+    # Only return completed tool calls (those with a result)
+    return [tc for tc in tool_calls if tc.get("result") is not None]
+
+
 async def _run_sub_agent(
     llm: ChatOpenAI | None,
     topic: str,
@@ -47,7 +68,7 @@ async def _run_sub_agent(
         result = await asyncio.wait_for(agent.ainvoke(initial_state), timeout=60.0)
     except asyncio.TimeoutError:
         logger.error("SubAgent timed out for topic=%r", topic)
-        return {"topic": topic, "summary": "子代理超时，无法完成搜索", "sources": []}
+        return {"topic": topic, "summary": "子代理超时，无法完成搜索", "sources": [], "tool_calls": []}
     logger.info("SubAgent completed for topic=%r", topic)
     # Extract the last assistant message as the summary
     messages = result.get("messages", [])
@@ -56,7 +77,13 @@ async def _run_sub_agent(
         if getattr(msg, "type", None) == "ai":
             summary = msg.content
             break
-    return {"topic": topic, "summary": summary or "无结果", "sources": []}
+
+    # Extract tool calls from the sub-agent execution
+    tool_calls = _extract_tool_calls(messages)
+    if tool_calls:
+        logger.info("SubAgent extracted %d tool calls for topic=%r", len(tool_calls), topic)
+
+    return {"topic": topic, "summary": summary or "无结果", "sources": [], "tool_calls": tool_calls}
 
 
 def gather_node(llm: ChatOpenAI | None = None):
@@ -74,6 +101,7 @@ def gather_node(llm: ChatOpenAI | None = None):
                 "sub_agent_results": [],
                 "status_message": " gather 失败：无研究计划",
                 "gather_round": current_round + 1,
+                "tool_calls": [],
             }
 
         logger.info(
@@ -100,12 +128,14 @@ def gather_node(llm: ChatOpenAI | None = None):
 
         # Handle exceptions from sub-agents
         valid_results: list[dict[str, Any]] = []
+        all_tool_calls: list[dict[str, Any]] = []
         for topic, r in zip(topics, results):
             if isinstance(r, Exception):
                 logger.error("SubAgent failed for topic=%r: %s", topic, r)
-                valid_results.append({"topic": topic, "summary": f"搜索失败: {r}", "sources": []})
+                valid_results.append({"topic": topic, "summary": f"搜索失败: {r}", "sources": [], "tool_calls": []})
             else:
                 valid_results.append(r)
+                all_tool_calls.extend(r.get("tool_calls", []))
 
         # Merge summaries into retrieved_context for downstream nodes
         snippets: list[str] = []
@@ -115,13 +145,14 @@ def gather_node(llm: ChatOpenAI | None = None):
             if summary:
                 snippets.append(f"【{topic}】{summary}")
 
-        logger.info("GatherNode collected %d summaries", len(snippets))
+        logger.info("GatherNode collected %d summaries, %d tool calls", len(snippets), len(all_tool_calls))
 
         return {
             "retrieved_context": snippets,
             "sub_agent_results": valid_results,
             "gather_round": current_round + 1,
             "status_message": f"并发搜索完成 {len(topics)} 个子主题",
+            "tool_calls": all_tool_calls,
         }
 
     return _node

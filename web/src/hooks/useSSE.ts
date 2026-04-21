@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import type { Message, NodeInfo, StreamEvent } from "@/types/events";
+import type { Message, NodeInfo, StreamEvent, ToolCall } from "@/types/events";
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -23,6 +23,18 @@ function extractPreview(data: Record<string, unknown> | undefined): string {
     }
   }
   return "";
+}
+
+function extractToolCalls(data: Record<string, unknown>): ToolCall[] {
+  const raw = data.tool_calls;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((tc): tc is Record<string, unknown> => typeof tc === "object" && tc !== null)
+    .map((tc) => ({
+      name: String(tc.name || ""),
+      args: (tc.args as Record<string, unknown>) || {},
+      result: typeof tc.result === "string" ? tc.result : undefined,
+    }));
 }
 
 function extractThinking(data: Record<string, unknown>): string {
@@ -134,6 +146,7 @@ export function useSSE() {
               const nodeData = (event.data ?? {}) as Record<string, unknown>;
               const preview = extractPreview(nodeData);
               const thinkingText = extractThinking(nodeData);
+              const nodeToolCalls = extractToolCalls(nodeData);
 
               setMessages((prev) => {
                 const last = prev[prev.length - 1];
@@ -150,6 +163,9 @@ export function useSSE() {
                     status: "running",
                     output: preview,
                     statusMessage: preview,
+                    toolCalls: nodeToolCalls.length > 0
+                      ? nodeToolCalls
+                      : updatedNodes[existingIndex].toolCalls,
                   };
                 } else {
                   updatedNodes.push({
@@ -158,6 +174,7 @@ export function useSSE() {
                     output: preview,
                     statusMessage: preview,
                     startTime: Date.now(),
+                    toolCalls: nodeToolCalls,
                   });
                 }
 
@@ -179,6 +196,34 @@ export function useSSE() {
                     thinking: updatedThinking,
                     content: possibleAnswer || last.content,
                   },
+                ];
+              });
+            } else if (event.type === "tool_call" && event.node) {
+              // Attach the tool call to the most recent running node (or the matching node)
+              const tcData = (event.data ?? {}) as Record<string, unknown>;
+              const toolCall: ToolCall = {
+                name: String(tcData.name || ""),
+                args: (tcData.args as Record<string, unknown>) || {},
+                result: typeof tcData.result === "string" ? tcData.result : undefined,
+              };
+
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (!last || last.role !== "assistant") return prev;
+
+                const updatedNodes = last.nodes.map((n) => {
+                  if (n.name === event.node || n.status === "running") {
+                    return {
+                      ...n,
+                      toolCalls: [...(n.toolCalls || []), toolCall],
+                    };
+                  }
+                  return n;
+                });
+
+                return [
+                  ...prev.slice(0, -1),
+                  { ...last, nodes: updatedNodes },
                 ];
               });
             } else if (event.type === "done") {
