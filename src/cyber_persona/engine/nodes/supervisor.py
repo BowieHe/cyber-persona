@@ -83,9 +83,21 @@ def create_supervisor_agent(llm: ChatOpenAI | None = None):
                 "research_iteration": research_iteration,
             }
 
-        # Seed the agent
+        # Seed the agent with research state context so it knows
+        # whether research has already been completed.
         from langchain_core.messages import HumanMessage
-        lc_messages = [HumanMessage(content=f"用户请求: {user_query}")]
+        harness_status = state.get("current_harness_status", "")
+        retrieved = state.get("retrieved_context", [])
+        has_draft = bool(state.get("draft", ""))
+        context_text = (
+            f"用户请求: {user_query}\n\n"
+            f"当前研究状态：\n"
+            f"- 已完成研究轮次: {research_iteration}\n"
+            f"- 信息评估状态: {harness_status or '未开始'}\n"
+            f"- 已检索信息: {len(retrieved)} 条\n"
+            f"- 是否已有草稿: {'是' if has_draft else '否'}\n"
+        )
+        lc_messages = [HumanMessage(content=context_text)]
         for m in messages:
             if isinstance(m, dict) and m.get("role") == "human":
                 lc_messages.append(HumanMessage(content=m.get("content", "")))
