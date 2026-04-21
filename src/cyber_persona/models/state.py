@@ -34,6 +34,7 @@ class AssistantState(TypedDict, total=False):
     research_plan: list[str]
     sub_agent_results: list[dict[str, Any]]
     gather_round: int
+    research_iteration: int  # How many times supervisor has routed to research_orchestrator
 
     # --- Harness Regulatory State ---
     attempted_queries: Annotated[list[str], operator.add]
@@ -71,6 +72,7 @@ def create_default_state() -> AssistantState:
         "research_plan": [],
         "sub_agent_results": [],
         "gather_round": 0,
+        "research_iteration": 0,
         "attempted_queries": [],
         "correction_log": [],
         "search_retry_count": 0,

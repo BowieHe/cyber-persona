@@ -5,8 +5,13 @@ from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from cyber_persona.engine.llm_factory import get_llm
+from cyber_persona.engine.nodes.research_supervisor.router import MAX_GATHER_ROUNDS
 
 logger = logging.getLogger(__name__)
+
+# Supervisor may route to research_orchestrator at most MAX_GATHER_ROUNDS times.
+# This keeps the outer loop limit consistent with the inner gather limit.
+MAX_RESEARCH_ITERATIONS = MAX_GATHER_ROUNDS
 
 
 def create_supervisor_agent(llm: ChatOpenAI | None = None):
@@ -51,16 +56,33 @@ def create_supervisor_agent(llm: ChatOpenAI | None = None):
             "你是系统的总调度员。根据用户请求和当前状态，选择最合适的 specialist 处理下一步。\n"
             "使用 handoff_to_* 工具来做出选择。\n"
             "- chat_agent: 闲聊、问候、简单问答\n"
-            "- research_orchestrator: 需要多源检索的深度研究\n"
+            "- research_orchestrator: 需要多源检索的深度研究（尚未检索过或信息不足时）\n"
             "- drafter: 已有足够检索结果，需要撰写草稿\n"
             "- debater_agent: 需要对草稿进行批判性辩论\n"
-            "- synthesizer: 整合草稿和辩论意见，输出最终答案\n"
+            "- synthesizer: 整合草稿和辩论意见，输出最终答案\n\n"
+            "重要：不要重复把同一个任务路由到 research_orchestrator。"
+            "如果已经检索过但信息仍然不足，直接路由到 drafter 让其在有限信息下撰写。"
         ),
     )
 
     async def _wrapped(state: dict[str, Any]) -> dict[str, Any]:
         user_query = state.get("user_query", "")
         messages = state.get("messages", [])
+        research_iteration = state.get("research_iteration", 0)
+
+        # Hard limit: force drafter if max research iterations reached
+        if research_iteration >= MAX_RESEARCH_ITERATIONS:
+            logger.info(
+                "Max research iterations reached (%d >= %d), forcing drafter",
+                research_iteration,
+                MAX_RESEARCH_ITERATIONS,
+            )
+            return {
+                "next_agent": "drafter",
+                "status_message": f"已达到最大研究轮次 ({research_iteration})，强制进入撰写阶段",
+                "research_iteration": research_iteration,
+            }
+
         # Seed the agent
         from langchain_core.messages import HumanMessage
         lc_messages = [HumanMessage(content=f"用户请求: {user_query}")]
@@ -70,7 +92,11 @@ def create_supervisor_agent(llm: ChatOpenAI | None = None):
             elif hasattr(m, "type"):
                 lc_messages.append(m)
 
-        logger.info("Supervisor invoking agent with %d messages", len(lc_messages))
+        logger.info(
+            "Supervisor invoking agent with %d messages (research_iteration=%d)",
+            len(lc_messages),
+            research_iteration,
+        )
         result = await agent.ainvoke({"messages": lc_messages})
         logger.info("Supervisor agent returned %d messages", len(result.get("messages", [])))
         # The last message should be an AIMessage with a tool call result
@@ -95,11 +121,17 @@ def create_supervisor_agent(llm: ChatOpenAI | None = None):
             else:
                 next_agent = "research_orchestrator"
 
-        logger.info("Supervisor routed to %s", next_agent)
+        # Increment counter when routing to research_orchestrator
+        new_iteration = research_iteration
+        if next_agent == "research_orchestrator":
+            new_iteration = research_iteration + 1
+
+        logger.info("Supervisor routed to %s (research_iteration=%d)", next_agent, new_iteration)
         return {
             "next_agent": next_agent,
             "messages": result["messages"],
             "status_message": f"Supervisor 路由到 {next_agent}",
+            "research_iteration": new_iteration,
         }
 
     return _wrapped
