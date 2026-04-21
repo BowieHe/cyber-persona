@@ -7,6 +7,7 @@ import asyncio
 import logging
 from typing import Any
 
+from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 
 from cyber_persona.engine.nodes.research_sub_agent.graph import create_search_agent
@@ -29,12 +30,18 @@ async def _run_sub_agent(
     # Create a fresh agent instance per task to avoid concurrent state issues
     agent = create_search_agent(llm)
 
-    # Seed the sub-agent with the topic and user query
+    # Build the initial message so the agent knows exactly what to search for.
+    # create_react_agent consumes messages, so we pass the topic here.
     initial_state: AssistantState = {
-        "user_query": user_query,
-        "current_query": topic,
-        "retrieved_context": [],
-        "sub_agent_results": [],
+        "messages": [
+            HumanMessage(
+                content=(
+                    f"用户原始问题：{user_query}\n"
+                    f"请搜索并总结关于「{topic}」的最新信息。\n"
+                    "使用 web_search 工具进行搜索，然后提供简洁的总结。"
+                )
+            )
+        ],
     }
     try:
         result = await asyncio.wait_for(agent.ainvoke(initial_state), timeout=60.0)
@@ -42,11 +49,14 @@ async def _run_sub_agent(
         logger.error("SubAgent timed out for topic=%r", topic)
         return {"topic": topic, "summary": "子代理超时，无法完成搜索", "sources": []}
     logger.info("SubAgent completed for topic=%r", topic)
-    # Extract the sub_agent_results produced by the sub-agent
-    items = result.get("sub_agent_results", [])
-    if items:
-        return items[0]
-    return {"topic": topic, "summary": "无结果", "sources": []}
+    # Extract the last assistant message as the summary
+    messages = result.get("messages", [])
+    summary = ""
+    for msg in reversed(messages):
+        if getattr(msg, "type", None) == "ai":
+            summary = msg.content
+            break
+    return {"topic": topic, "summary": summary or "无结果", "sources": []}
 
 
 def gather_node(llm: ChatOpenAI | None = None):

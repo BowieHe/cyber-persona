@@ -30,10 +30,13 @@ def create_search_agent(llm: ChatOpenAI | None = None) -> CompiledStateGraph:
     """Build a single-topic research agent using ReAct."""
     llm_instance = get_llm(llm, light=True)
     prompt = (
-        "你是一个研究子代理。你的任务是：\n"
-        "1. 使用 web_search 工具搜索与用户问题相关的信息。\n"
-        "2. 根据搜索结果，生成一段简洁的总结。\n"
-        "3. 最终必须在对话中输出总结内容。"
+        "你是一个研究子代理。\n"
+        "你的任务是根据用户给出的具体子主题，使用 web_search 工具搜索相关信息，"
+        "然后生成一段简洁的总结。\n\n"
+        "重要规则：\n"
+        "1. 搜索查询必须与用户指定的子主题高度相关。\n"
+        "2. 不要使用与主题无关的搜索词。\n"
+        "3. 搜索完成后，直接在对话中输出总结内容。"
     )
     return create_react_agent(
         model=llm_instance,
