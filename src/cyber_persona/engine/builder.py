@@ -11,16 +11,11 @@ from cyber_persona.engine.nodes.chat_agent import create_chat_agent
 from cyber_persona.engine.nodes.plan_node import plan_node
 from cyber_persona.engine.nodes.router import router_node
 from cyber_persona.engine.nodes.verifier import verifier_node
-from cyber_persona.engine.nodes.harness import fact_check_harness_node
-from cyber_persona.engine.nodes.error_handler import error_handling_node
-from cyber_persona.engine.routers import fact_check_harness_router
 from cyber_persona.engine.nodes.research_supervisor.graph import create_research_orchestrator_subgraph
 from cyber_persona.engine.nodes.drafter import drafter_node
 from cyber_persona.engine.nodes.debater.graph import create_debater_subgraph
 from cyber_persona.engine.nodes.synthesizer import synthesizer_node
-from cyber_persona.engine.nodes.output_verifier import output_verifier_node
-from cyber_persona.models import AssistantState, create_default_state
-from cyber_persona.tools import SearchTool
+from cyber_persona.models import AssistantState
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +26,8 @@ class GraphBuilder:
     def __init__(
         self,
         llm: ChatOpenAI | None = None,
-        search_tool: SearchTool | None = None,
     ) -> None:
         self.llm = llm
-        self.search_tool = search_tool
         self.nodes: dict[str, Any] = {}
         self.edges: list[tuple[str, str]] = []
         self.conditional_edges: list[tuple[str, Any, dict]] = []
@@ -98,20 +91,12 @@ def _router_conditional(state: AssistantState) -> str:
     return next_agent
 
 
-def _verifier_conditional(state: AssistantState) -> str:
-    """Route from verifier back to router."""
-    # Verifier always routes back to router.
-    # The verifier node itself handles plan_index advancement on PASSED.
-    return "router"
-
-
 def create_graph(
     llm: ChatOpenAI | None = None,
     llm_light: ChatOpenAI | None = None,
-    search_tool: SearchTool | None = None,
 ) -> CompiledStateGraph:
     """Create the unified multi-agent graph."""
-    builder = GraphBuilder(llm=llm, search_tool=search_tool)
+    builder = GraphBuilder(llm=llm)
     light = llm_light or llm
 
     # Plan-driven nodes
@@ -125,11 +110,6 @@ def create_graph(
     builder.add_node("drafter", drafter_node(llm))
     builder.add_node("debater_agent", create_debater_subgraph(llm))
     builder.add_node("synthesizer", synthesizer_node(llm))
-
-    # Legacy harness / verifier nodes
-    builder.add_node("fact_check_harness", fact_check_harness_node(light))
-    builder.add_node("output_verifier", output_verifier_node(light))
-    builder.add_node("error_handling", error_handling_node)
 
     # Flow: plan -> router -> (specialist) -> verifier -> router
     builder.add_edge("plan_node", "router")

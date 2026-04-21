@@ -35,9 +35,9 @@ def create_chat_agent(llm: ChatOpenAI | None = None):
         return {
             "messages": result["messages"],
             "output": result["messages"][-1].content if result["messages"] else "",
-            "next_agent": "supervisor",
             "last_specialist": "chat_agent",
             "status_message": "chat 完成",
+            "execution_log": ["chat_agent: 完成对话回复"],
         }
 
     return _wrapped
