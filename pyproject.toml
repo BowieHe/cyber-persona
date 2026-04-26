@@ -17,6 +17,7 @@ dependencies = [
     "google-auth-oauthlib>=1.2.2",
     "google-auth>=2.40.0",
     "google-api-python-client>=2.169.0",
+    "socksio>=1.0.0",
 ]
 
 [project.scripts]
