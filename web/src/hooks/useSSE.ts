@@ -196,6 +196,7 @@ export function useSSE() {
                 // Only overwrite main content from terminal nodes to avoid
                 // intermediate status messages flashing as the answer.
                 let newContent = last.content;
+                let contentReady = false;
                 if (isContentNode) {
                   const possibleAnswer =
                     (nodeData.final_answer as string) ||
@@ -204,6 +205,7 @@ export function useSSE() {
                     "";
                   if (possibleAnswer) {
                     newContent = possibleAnswer;
+                    contentReady = true;
                   }
                 }
 
@@ -214,6 +216,7 @@ export function useSSE() {
                     nodes: updatedNodes,
                     thinking: updatedThinking,
                     content: newContent,
+                    isLoading: contentReady ? false : last.isLoading,
                   },
                 ];
               });
